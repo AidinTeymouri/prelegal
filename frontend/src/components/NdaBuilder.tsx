@@ -3,13 +3,7 @@
 import { useMemo, useState } from "react";
 import { NdaForm } from "@/components/NdaForm";
 import { NdaPreview } from "@/components/NdaPreview";
-import { buildCoverPage, defaultFormData, missingRequiredFields, type NdaFormData, type TermsBlock } from "@/lib/nda";
-
-function pdfFilename(data: NdaFormData): string {
-  const slug = (s: string) => s.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
-  const parties = [data.party1.company, data.party2.company].map(slug).filter(Boolean);
-  return ["Mutual-NDA", ...parties].join("_") + ".pdf";
-}
+import { buildCoverPage, defaultFormData, missingRequiredFields, pdfFilename, type NdaFormData, type TermsBlock } from "@/lib/nda";
 
 export function NdaBuilder({ terms }: { terms: TermsBlock[] }) {
   const [data, setData] = useState<NdaFormData>(defaultFormData);

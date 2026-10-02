@@ -32,7 +32,17 @@ function Fieldset({ legend, children }: { legend: string; children: ReactNode })
 
 // Keeps the raw text while editing so the field can be cleared and retyped;
 // only whole numbers from 1 to 99 are passed up, and blur restores the last valid value.
-function YearsInput({ value, disabled, onChange }: { value: number; disabled: boolean; onChange: (n: number) => void }) {
+function YearsInput({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  disabled: boolean;
+  onChange: (n: number) => void;
+}) {
   const [draft, setDraft] = useState(String(value));
   return (
     <input
@@ -48,7 +58,7 @@ function YearsInput({ value, disabled, onChange }: { value: number; disabled: bo
       }}
       onBlur={() => setDraft(String(value))}
       className="mx-1 w-16 rounded-md border border-zinc-300 px-2 py-1 text-sm disabled:bg-zinc-100 disabled:text-zinc-400"
-      aria-label="Number of years"
+      aria-label={label}
     />
   );
 }
@@ -69,9 +79,11 @@ export function NdaForm({ data, onChange }: Props) {
           <input type="date" className={inputClass} value={data.effectiveDate} onChange={(e) => set("effectiveDate", e.target.value)} />
         </Field>
 
-        <div>
-          <span className="text-sm font-medium text-zinc-800">MNDA term</span>
-          <span className="ml-2 text-xs text-zinc-500">The length of this MNDA</span>
+        <fieldset>
+          <legend>
+            <span className="text-sm font-medium text-zinc-800">MNDA term</span>
+            <span className="ml-2 text-xs text-zinc-500">The length of this MNDA</span>
+          </legend>
           <div className="mt-2 space-y-2 text-sm text-zinc-700">
             <label className="flex items-center">
               <input
@@ -82,7 +94,12 @@ export function NdaForm({ data, onChange }: Props) {
                 onChange={() => set("mndaTermType", "expires")}
               />
               Expires
-              <YearsInput value={data.mndaTermYears} disabled={data.mndaTermType !== "expires"} onChange={(n) => set("mndaTermYears", n)} />
+              <YearsInput
+                label="MNDA term in years"
+                value={data.mndaTermYears}
+                disabled={data.mndaTermType !== "expires"}
+                onChange={(n) => set("mndaTermYears", n)}
+              />
               year(s) from the effective date
             </label>
             <label className="flex items-center">
@@ -96,11 +113,13 @@ export function NdaForm({ data, onChange }: Props) {
               Continues until terminated
             </label>
           </div>
-        </div>
+        </fieldset>
 
-        <div>
-          <span className="text-sm font-medium text-zinc-800">Term of confidentiality</span>
-          <span className="ml-2 text-xs text-zinc-500">How long Confidential Information is protected</span>
+        <fieldset>
+          <legend>
+            <span className="text-sm font-medium text-zinc-800">Term of confidentiality</span>
+            <span className="ml-2 text-xs text-zinc-500">How long Confidential Information is protected</span>
+          </legend>
           <div className="mt-2 space-y-2 text-sm text-zinc-700">
             <label className="flex items-center">
               <input
@@ -111,6 +130,7 @@ export function NdaForm({ data, onChange }: Props) {
                 onChange={() => set("confidentialityType", "years")}
               />
               <YearsInput
+                label="Term of confidentiality in years"
                 value={data.confidentialityYears}
                 disabled={data.confidentialityType !== "years"}
                 onChange={(n) => set("confidentialityYears", n)}
@@ -128,7 +148,7 @@ export function NdaForm({ data, onChange }: Props) {
               In perpetuity
             </label>
           </div>
-        </div>
+        </fieldset>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Governing law" hint="State">

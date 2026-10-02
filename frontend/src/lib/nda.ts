@@ -61,6 +61,19 @@ export function missingRequiredFields(data: NdaFormData): string[] {
   return required.filter(([, value]) => !value.trim()).map(([label]) => label);
 }
 
+// e.g. "Mutual-NDA_Acme-Inc_Globex.pdf"; accents are dropped ("Société" -> "Societe")
+// and companies with no usable characters are left out.
+export function pdfFilename(data: NdaFormData): string {
+  const slug = (s: string) =>
+    s
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "");
+  const parties = [data.party1.company, data.party2.company].map(slug).filter(Boolean);
+  return ["Mutual-NDA", ...parties].join("_") + ".pdf";
+}
+
 // ---------------------------------------------------------------------------
 // Inline text
 
@@ -86,7 +99,10 @@ function years(n: number): string {
 export function formatDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return "";
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+  const date = new Date(y, m - 1, d);
+  // new Date() maps years 0–99 to 1900–1999, e.g. while a year is half typed.
+  date.setFullYear(y);
+  return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",

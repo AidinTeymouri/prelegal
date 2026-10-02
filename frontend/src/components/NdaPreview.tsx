@@ -59,15 +59,15 @@ export function NdaPreview({ cover, terms }: { cover: CoverPage; terms: TermsBlo
       <table className="w-full border-collapse text-left">
         <thead>
           <tr>
-            <th className="w-1/4 border border-zinc-300 p-2" />
-            <th className="border border-zinc-300 p-2 text-center">PARTY 1</th>
-            <th className="border border-zinc-300 p-2 text-center">PARTY 2</th>
+            <td className="w-1/4 border border-zinc-300 p-2" />
+            <th scope="col" className="border border-zinc-300 p-2 text-center">PARTY 1</th>
+            <th scope="col" className="border border-zinc-300 p-2 text-center">PARTY 2</th>
           </tr>
         </thead>
         <tbody>
           {cover.signatureRows.map((row) => (
             <tr key={row.label}>
-              <th className="border border-zinc-300 p-2 align-top font-semibold">
+              <th scope="row" className="border border-zinc-300 p-2 align-top font-semibold">
                 {row.label}
                 {row.hint && <div className="text-xs font-normal italic text-zinc-500">{row.hint}</div>}
               </th>
