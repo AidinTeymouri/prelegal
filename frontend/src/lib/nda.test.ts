@@ -163,6 +163,13 @@ describe("pdfFilename", () => {
     expect(pdfFilename(data)).toBe("Mutual-NDA_Societe-Generale-Americas_Zurich-Angstrom.pdf");
   });
 
+  it("spells out Latin letters that have no separate accent", () => {
+    const data = completeFormData();
+    data.party1.company = "Łódź Spółka Øresund";
+    data.party2.company = "Straße Đà Nẵng Œuvre";
+    expect(pdfFilename(data)).toBe("Mutual-NDA_Lodz-Spolka-Oresund_Strasse-Da-Nang-OEuvre.pdf");
+  });
+
   it("leaves out companies that are empty or have no ASCII letters or digits", () => {
     const data = completeFormData();
     data.party1.company = "";

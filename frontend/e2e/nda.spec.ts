@@ -157,6 +157,42 @@ test.describe("Mutual NDA creator", () => {
     await expect(page.getByText(/Something went wrong/)).toHaveCount(0);
   });
 
+  test("downloads a PDF with Latin, Greek and Cyrillic names intact", async ({ page }, testInfo) => {
+    await fillForm(page);
+    await party(page, 1).getByLabel(/^Company/).fill("Łódź Spółka Şirket");
+    await party(page, 2).getByLabel(/^Company/).fill("ООО «Ромашка»");
+    await party(page, 2).getByLabel(/^Signatory name/).fill("Αθήνα Νικολάου");
+    await expect(page.getByText(/The PDF can’t show these characters/)).toHaveCount(0);
+
+    const fontRequests: string[] = [];
+    page.on("response", (r) => r.url().includes("/fonts/") && fontRequests.push(`${r.status()} ${new URL(r.url()).pathname}`));
+    const downloadPromise = page.waitForEvent("download");
+    await downloadButton(page).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("Mutual-NDA_Lodz-Spolka-Sirket.pdf");
+    const file = testInfo.outputPath("unicode.pdf");
+    await download.saveAs(file);
+
+    const { text } = await pdfText(file);
+    for (const value of ["Łódź Spółka Şirket", "ООО «Ромашка»", "Αθήνα Νικολάου"]) expect(text).toContain(value);
+    expect(fontRequests.sort()).toEqual([
+      "200 /fonts/NotoSerif-Bold.ttf",
+      "200 /fonts/NotoSerif-Italic.ttf",
+      "200 /fonts/NotoSerif-Regular.ttf",
+    ]);
+  });
+
+  test("warns about characters the PDF can't show, without blocking the download", async ({ page }) => {
+    await fillForm(page);
+    await party(page, 2).getByLabel(/^Company/).fill("株式会社 Globex");
+    const warning = page.getByRole("status").filter({ hasText: "The PDF can’t show these characters" });
+    await expect(warning).toContainText("株 式 会 社");
+    await expect(downloadButton(page)).toBeEnabled();
+
+    await party(page, 2).getByLabel(/^Company/).fill("Globex KK");
+    await expect(warning).toHaveCount(0);
+  });
+
   test("can be used with the keyboard alone", async ({ page }) => {
     await page.getByLabel(/^Purpose/).focus();
     await page.keyboard.press("Tab");

@@ -80,6 +80,11 @@ Open the PDF and check:
 
 Repeat the PDF checks in: macOS Preview, Adobe Acrobat Reader, and the browser's built-in PDF viewer.
 
+### Other alphabets
+
+- [ ] Set Party 1 company to `Łódź Spółka Şirket`, Party 1 name to `Nguyễn Văn Hữu`, and Party 2 company to `ООО «Ромашка»`. No warning appears under the button; in the PDF all three print exactly as typed, in the same typeface as the rest of the document. The file is named `Mutual-NDA_Lodz-Spolka-Sirket.pdf` (the Cyrillic company has no Latin letters, so it is left out).
+- [ ] Add `株式会社` to Party 2 company: an amber note under the button lists `株 式 会 社` and says they will come out garbled; **Download PDF** still works. Remove them: the note disappears.
+
 ## 5. Legal content
 
 Compare the preview and the PDF against the Common Paper sources in the repo-root `templates/` directory (`Mutual-NDA-coverpage.md` and `Mutual-NDA.md`).

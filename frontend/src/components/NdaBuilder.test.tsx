@@ -12,7 +12,8 @@ import { parseStandardTerms } from "@/lib/nda";
 const toBlob = vi.fn<() => Promise<Blob>>();
 const pdf = vi.fn<(element: ReactElement) => { toBlob: typeof toBlob }>(() => ({ toBlob }));
 vi.mock("@react-pdf/renderer", () => ({ pdf: (element: ReactElement) => pdf(element) }));
-vi.mock("@/components/NdaPdf", () => ({ NdaPdf: () => null }));
+const registerPdfFonts = vi.fn();
+vi.mock("@/components/NdaPdf", () => ({ NdaPdf: () => null, registerPdfFonts: (dir: string) => registerPdfFonts(dir) }));
 
 const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "templates", "Mutual-NDA.md"), "utf8"));
 
@@ -55,6 +56,7 @@ describe("NdaBuilder", () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     pdf.mockClear();
+    registerPdfFonts.mockClear();
     toBlob.mockReset();
   });
 
@@ -119,6 +121,39 @@ describe("NdaBuilder", () => {
     });
   });
 
+  describe("unsupported characters warning", () => {
+    const warning = () => screen.queryByText(/The PDF can’t show these characters/);
+
+    it("is not shown for Latin, Greek or Cyrillic text", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(<NdaBuilder terms={terms} />);
+      await user.type(within(party(1)).getByLabelText(/^Company/), "Łódź Spółka – ООО Ромашка – Αθήνα");
+      expect(warning()).not.toBeInTheDocument();
+    });
+
+    it("lists the characters the PDF can't show, and goes away once they are removed", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(<NdaBuilder terms={terms} />);
+      const company = within(party(2)).getByLabelText(/^Company/);
+      await user.type(company, "株式会社 Globex");
+      expect(warning()).toHaveTextContent("株 式 会 社");
+      expect(warning()).toHaveAttribute("role", "status");
+
+      await user.clear(company);
+      await user.type(company, "Globex KK");
+      expect(warning()).not.toBeInTheDocument();
+    });
+
+    it("does not block the download", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(<NdaBuilder terms={terms} />);
+      await fillRequiredFields(user);
+      await user.type(screen.getByLabelText(/^MNDA modifications/), "שלום");
+      expect(warning()).toBeInTheDocument();
+      expect(downloadButton()).toBeEnabled();
+    });
+  });
+
   describe("downloading", () => {
     it("renders the PDF from the same cover page and terms as the preview, and downloads it", async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -131,6 +166,9 @@ describe("NdaBuilder", () => {
       expect(element.props.terms).toBe(terms);
       expect(element.props.cover.sections.map((s) => s.title)).toContain("Governing Law & Jurisdiction");
       expect(JSON.stringify(element.props.cover)).toContain("Delaware");
+
+      expect(registerPdfFonts).toHaveBeenCalledWith("/fonts");
+      expect(registerPdfFonts.mock.invocationCallOrder[0]).toBeLessThan(pdf.mock.invocationCallOrder[0]);
 
       const [anchor] = clicks;
       expect(anchor.href).toBe("blob:mock-url");

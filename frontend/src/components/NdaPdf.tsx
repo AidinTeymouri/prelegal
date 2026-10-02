@@ -4,8 +4,28 @@ import type { CoverPage, Inline, TermsBlock } from "@/lib/nda";
 // Legal text reads better without words broken across lines.
 Font.registerHyphenationCallback((word) => [word]);
 
+// Noto Serif (public/fonts, SIL OFL 1.1) covers Latin, Greek and Cyrillic, unlike
+// the built-in PDF fonts. src/lib/pdf-font-coverage.ts lists what it can draw.
+const FONT_FAMILY = "Noto Serif";
+let fontsRegistered = false;
+
+// fontDir is a URL path in the browser ("/fonts") and a directory on disk in Node.
+// Registering twice would add duplicate sources, so later calls are ignored.
+export function registerPdfFonts(fontDir: string) {
+  if (fontsRegistered) return;
+  Font.register({
+    family: FONT_FAMILY,
+    fonts: [
+      { src: `${fontDir}/NotoSerif-Regular.ttf` },
+      { src: `${fontDir}/NotoSerif-Bold.ttf`, fontWeight: "bold" },
+      { src: `${fontDir}/NotoSerif-Italic.ttf`, fontStyle: "italic" },
+    ],
+  });
+  fontsRegistered = true;
+}
+
 const styles = StyleSheet.create({
-  page: { paddingVertical: 48, paddingHorizontal: 60, fontFamily: "Times-Roman", fontSize: 10, lineHeight: 1.35 },
+  page: { paddingVertical: 48, paddingHorizontal: 60, fontFamily: FONT_FAMILY, fontSize: 10, lineHeight: 1.35 },
   title: { fontWeight: "bold", fontSize: 16, textAlign: "center", marginBottom: 10 },
   paragraph: { marginBottom: 5 },
   sectionTitle: { fontWeight: "bold", marginTop: 4, marginBottom: 1 },

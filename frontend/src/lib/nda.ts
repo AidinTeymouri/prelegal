@@ -61,6 +61,12 @@ export function missingRequiredFields(data: NdaFormData): string[] {
   return required.filter(([, value]) => !value.trim()).map(([label]) => label);
 }
 
+// Latin letters that don't decompose into a base letter plus an accent.
+const LATIN_LETTERS: Record<string, string> = {
+  Ł: "L", ł: "l", Ø: "O", ø: "o", Đ: "D", đ: "d", Ħ: "H", ħ: "h", ı: "i",
+  ß: "ss", Æ: "AE", æ: "ae", Œ: "OE", œ: "oe", Þ: "Th", þ: "th", Ð: "D", ð: "d",
+};
+
 // e.g. "Mutual-NDA_Acme-Inc_Globex.pdf"; accents are dropped ("Société" -> "Societe")
 // and companies with no usable characters are left out.
 export function pdfFilename(data: NdaFormData): string {
@@ -68,6 +74,7 @@ export function pdfFilename(data: NdaFormData): string {
     s
       .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\x00-\x7f]/g, (c) => LATIN_LETTERS[c] ?? c)
       .replace(/[^a-z0-9]+/gi, "-")
       .replace(/^-|-$/g, "");
   const parties = [data.party1.company, data.party2.company].map(slug).filter(Boolean);

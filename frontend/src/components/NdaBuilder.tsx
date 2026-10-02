@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { NdaForm } from "@/components/NdaForm";
 import { NdaPreview } from "@/components/NdaPreview";
 import { buildCoverPage, defaultFormData, missingRequiredFields, pdfFilename, type NdaFormData, type TermsBlock } from "@/lib/nda";
+import { unsupportedPdfCharacters } from "@/lib/pdf-fonts";
 
 export function NdaBuilder({ terms }: { terms: TermsBlock[] }) {
   const [data, setData] = useState<NdaFormData>(defaultFormData);
@@ -12,13 +13,15 @@ export function NdaBuilder({ terms }: { terms: TermsBlock[] }) {
 
   const cover = useMemo(() => buildCoverPage(data), [data]);
   const missing = missingRequiredFields(data);
+  const unsupported = unsupportedPdfCharacters(data);
 
   async function download() {
     setDownloading(true);
     setError(null);
     try {
       // Loaded on demand: the PDF renderer is large and only needed on download.
-      const [{ pdf }, { NdaPdf }] = await Promise.all([import("@react-pdf/renderer"), import("@/components/NdaPdf")]);
+      const [{ pdf }, { NdaPdf, registerPdfFonts }] = await Promise.all([import("@react-pdf/renderer"), import("@/components/NdaPdf")]);
+      registerPdfFonts("/fonts");
       const blob = await pdf(<NdaPdf cover={cover} terms={terms} />).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -52,6 +55,12 @@ export function NdaBuilder({ terms }: { terms: TermsBlock[] }) {
             {downloading ? "Generating PDF…" : "Download PDF"}
           </button>
           {missing.length > 0 && <p className="mt-2 text-xs text-zinc-500">Still needed: {missing.join(", ")}</p>}
+          {unsupported.length > 0 && (
+            <p role="status" className="mt-2 text-xs text-amber-700">
+              The PDF can’t show these characters, so they will come out garbled: {unsupported.join(" ")}. Latin, Greek and Cyrillic
+              letters work. Consider a romanized spelling.
+            </p>
+          )}
           {error && (
             <p role="alert" className="mt-2 text-xs text-red-600">
               {error}

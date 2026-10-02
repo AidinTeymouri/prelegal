@@ -6,8 +6,10 @@ import path from "node:path";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PDFParse } from "pdf-parse";
 import { describe, expect, it } from "vitest";
-import { NdaPdf } from "@/components/NdaPdf";
+import { NdaPdf, registerPdfFonts } from "@/components/NdaPdf";
 import { buildCoverPage, defaultFormData, parseStandardTerms, type NdaFormData } from "@/lib/nda";
+
+registerPdfFonts(path.join(process.cwd(), "public", "fonts"));
 
 const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "templates", "Mutual-NDA.md"), "utf8"));
 
@@ -47,6 +49,13 @@ describe("NdaPdf", () => {
     expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
     expect(info.Title).toBe("Mutual Non-Disclosure Agreement");
     expect(info.Author).toBe("Prelegal");
+  });
+
+  it("embeds Noto Serif regular, bold and italic instead of the built-in PDF fonts", async () => {
+    const { buffer } = await renderPdf(completeFormData());
+    // Embedded fonts are named like /BaseFont /ABCDEF+NotoSerif-Bold (a subset prefix, then the font).
+    const fonts = new Set([...buffer.toString("latin1").matchAll(/\/BaseFont\s*\/(?:[A-Z]{6}\+)?([\w-]+)/g)].map((m) => m[1]));
+    expect([...fonts].sort()).toEqual(["NotoSerif-Bold", "NotoSerif-Italic", "NotoSerif-Regular"]);
   });
 
   it("puts the cover page first and the standard terms on following pages", async () => {
@@ -115,16 +124,17 @@ describe("NdaPdf", () => {
     }
   });
 
-  // Known bug: the built-in Times-Roman font only covers Latin-1, so names like
-  // "Łódź" or "株式会社" come out garbled. Fixing it needs a bundled Unicode font.
-  // Remove `.fails` once that is done.
-  it.fails("renders characters outside Latin-1 (Polish, Turkish, Japanese)", async () => {
+  it("renders Latin, Greek and Cyrillic characters outside Latin-1", async () => {
     const data = completeFormData();
-    data.party1.company = "Łódź Şirket";
-    data.party2.company = "株式会社";
+    data.party1.company = "Łódź Spółka Şirket Řeřicha";
+    data.party1.name = "Nguyễn Văn Hữu";
+    data.party2.company = "ООО «Ромашка»";
+    data.party2.name = "Αθήνα Εταιρεία";
+    data.modifications = "Section 9: courts of Kraków, Poland.";
     const { text } = await renderPdf(data);
-    expect(text).toContain("Łódź Şirket");
-    expect(text).toContain("株式会社");
+    for (const value of ["Łódź Spółka Şirket Řeřicha", "Nguyễn Văn Hữu", "ООО «Ромашка»", "Αθήνα Εταιρεία", "Kraków"]) {
+      expect(text).toContain(value);
+    }
   });
 
   it("renders long, multi-line and Latin-1 accented input without failing", async () => {
