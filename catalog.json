@@ -1,0 +1,62 @@
+[
+  {
+    "name": "AI Addendum",
+    "description": "Common Paper standard addendum governing a provider's AI services, covering input, output, usage restrictions and model training.",
+    "filename": "AI-Addendum.md"
+  },
+  {
+    "name": "Business Associate Agreement",
+    "description": "Common Paper standard Business Associate Agreement setting out HIPAA obligations for handling protected health information (PHI).",
+    "filename": "BAA.md"
+  },
+  {
+    "name": "Cloud Service Agreement",
+    "description": "Common Paper standard agreement for selling and buying cloud software and SaaS products.",
+    "filename": "CSA.md"
+  },
+  {
+    "name": "Data Processing Agreement",
+    "description": "Common Paper standard Data Processing Agreement governing the processing of personal data under privacy laws such as the GDPR.",
+    "filename": "DPA.md"
+  },
+  {
+    "name": "Design Partner Agreement",
+    "description": "Common Paper standard agreement giving a partner early access to a product in exchange for feedback during development.",
+    "filename": "Design-Partner-Agreement.md"
+  },
+  {
+    "name": "Mutual Non-Disclosure Agreement",
+    "description": "Common Paper Mutual NDA standard terms for protecting confidential information exchanged between two parties.",
+    "filename": "Mutual-NDA.md"
+  },
+  {
+    "name": "Mutual Non-Disclosure Agreement Cover Page",
+    "description": "Cover page for the Common Paper Mutual NDA capturing the purpose, effective date, term, governing law and party details.",
+    "filename": "Mutual-NDA-coverpage.md"
+  },
+  {
+    "name": "Partnership Agreement",
+    "description": "Common Paper standard agreement for business partnerships where each party performs agreed obligations, such as co-marketing or integration arrangements.",
+    "filename": "Partnership-Agreement.md"
+  },
+  {
+    "name": "Pilot Agreement",
+    "description": "Common Paper standard agreement for a limited trial or evaluation of a product before a full purchase.",
+    "filename": "Pilot-Agreement.md"
+  },
+  {
+    "name": "Professional Services Agreement",
+    "description": "Common Paper standard agreement for professional services delivered under statements of work (SOWs).",
+    "filename": "PSA.md"
+  },
+  {
+    "name": "Service Level Agreement",
+    "description": "Common Paper standard Service Level Agreement defining uptime targets, support response times and service credits for a cloud service.",
+    "filename": "SLA.md"
+  },
+  {
+    "name": "Software License Agreement",
+    "description": "Common Paper standard agreement for licensing on-premise or self-hosted software.",
+    "filename": "Software-License-Agreement.md"
+  }
+]
