@@ -42,6 +42,7 @@ test.describe("Mutual NDA creator", () => {
     page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text()) && consoleErrors.push(msg.text()));
     page.on("pageerror", (err) => consoleErrors.push(err.message));
     await signUp(page);
+    await page.getByRole("tab", { name: "Fields" }).click();
     await expect(page.getByLabel(/^Purpose/)).toBeVisible();
   });
 
@@ -260,6 +261,7 @@ test.describe("time zones", () => {
         await signUp(page);
         // Reload so the NDA creator is rendered on a fresh page load, not just after signing in.
         await page.reload();
+        await page.getByRole("tab", { name: "Fields" }).click();
         const today = await page.evaluate(() => new Date().toLocaleDateString("en-CA"));
         await expect(page.getByLabel(/^Effective date/)).toHaveValue(today);
         expect(errors).toEqual([]);
@@ -273,6 +275,7 @@ test.describe("on a phone", () => {
 
   test("stacks the form above the preview without horizontal scrolling", async ({ page }) => {
     await signUp(page);
+    await page.getByRole("tab", { name: "Fields" }).click();
     const form = page.getByLabel(/^Purpose/);
     await expect(form).toBeVisible();
     const formBox = (await form.boundingBox())!;
