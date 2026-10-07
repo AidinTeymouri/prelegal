@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { NdaPreview } from "@/components/NdaPreview";
 import { buildCoverPage, defaultFormData, parseStandardTerms, type NdaFormData } from "@/lib/nda";
 
-const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "templates", "Mutual-NDA.md"), "utf8"));
+const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8"));
 
 function completeFormData(): NdaFormData {
   return {

@@ -28,7 +28,7 @@ describe("PDF_FONT_COVERAGE", () => {
 
   it("covers every character of the fixed agreement text", () => {
     const plain = (inlines: Inline[]) => inlines.map((i) => i.text).join("");
-    const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "templates", "Mutual-NDA.md"), "utf8"));
+    const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8"));
     const cover = buildCoverPage(defaultFormData());
     const text = [
       cover.title,

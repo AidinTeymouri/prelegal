@@ -5,6 +5,15 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Prelegal brand colours, e.g. bg-brand-purple, text-brand-navy. */
+@theme {
+  --color-brand-yellow: #ecad0a;
+  --color-brand-blue: #209dd7;
+  --color-brand-purple: #753991;
+  --color-brand-navy: #032147;
+  --color-brand-gray: #888888;
+}
+
 body {
   background: #f4f4f5;
   color: #18181b;

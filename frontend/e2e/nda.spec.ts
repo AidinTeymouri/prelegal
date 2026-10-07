@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { PDFParse } from "pdf-parse";
+import { isExpectedAuthError, signUp } from "./helpers";
 
 const preview = (page: Page) => page.getByRole("article");
 const party = (page: Page, n: 1 | 2) => page.getByRole("group", { name: `Party ${n}` });
@@ -38,9 +39,9 @@ test.describe("Mutual NDA creator", () => {
 
   test.beforeEach(async ({ page }) => {
     consoleErrors = [];
-    page.on("console", (msg) => msg.type() === "error" && consoleErrors.push(msg.text()));
+    page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text()) && consoleErrors.push(msg.text()));
     page.on("pageerror", (err) => consoleErrors.push(err.message));
-    await page.goto("/");
+    await signUp(page);
     await expect(page.getByLabel(/^Purpose/)).toBeVisible();
   });
 
@@ -238,9 +239,11 @@ test.describe("time zones", () => {
 
       test("uses the browser's local date without hydration errors", async ({ page }) => {
         const errors: string[] = [];
-        page.on("console", (msg) => msg.type() === "error" && errors.push(msg.text()));
+        page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text()) && errors.push(msg.text()));
         page.on("pageerror", (err) => errors.push(err.message));
-        await page.goto("/");
+        await signUp(page);
+        // Reload so the NDA creator is rendered on a fresh page load, not just after signing in.
+        await page.reload();
         const today = await page.evaluate(() => new Date().toLocaleDateString("en-CA"));
         await expect(page.getByLabel(/^Effective date/)).toHaveValue(today);
         expect(errors).toEqual([]);
@@ -253,7 +256,7 @@ test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
   test("stacks the form above the preview without horizontal scrolling", async ({ page }) => {
-    await page.goto("/");
+    await signUp(page);
     const form = page.getByLabel(/^Purpose/);
     await expect(form).toBeVisible();
     const formBox = (await form.boundingBox())!;

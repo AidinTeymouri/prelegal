@@ -4,18 +4,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildCoverPage, defaultFormData, parseStandardTerms, type Inline, type TermsBlock } from "@/lib/nda";
 
-const markdown = readFileSync(path.join(process.cwd(), "templates", "Mutual-NDA.md"), "utf8");
+const markdown = readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8");
 const terms = parseStandardTerms(markdown);
 
 const contentOf = (block: TermsBlock): Inline[] => (block.kind === "heading" ? [] : block.content);
 const plain = (inlines: Inline[]) => inlines.map((i) => i.text).join("");
 
 describe("templates/Mutual-NDA.md", () => {
-  it("is identical to the copy in the repo-root templates directory", () => {
-    const original = readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8");
-    expect(markdown).toBe(original);
-  });
-
   it("starts with the Standard Terms heading", () => {
     expect(terms[0]).toEqual({ kind: "heading", text: "Standard Terms" });
   });

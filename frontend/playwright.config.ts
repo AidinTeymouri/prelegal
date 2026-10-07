@@ -1,8 +1,11 @@
+import os from "node:os";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3100;
 
-// E2E tests run against a production build (`next build && next start`).
+// E2E tests run against the production setup: the static export (`next build`)
+// served by the FastAPI backend, with its own throwaway database.
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -15,8 +18,9 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `npm run build && npx next start -p ${PORT}`,
-    url: `http://localhost:${PORT}`,
+    command: `npm run build && cd ../backend && uv run uvicorn app.main:app --port ${PORT}`,
+    url: `http://localhost:${PORT}/api/health`,
+    env: { DATABASE_PATH: path.join(os.tmpdir(), "prelegal-e2e.db") },
     // Always build and serve the current code; a leftover server on the port fails loudly.
     reuseExistingServer: false,
     timeout: 180_000,
