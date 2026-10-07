@@ -194,6 +194,22 @@ test.describe("Mutual NDA creator", () => {
     await expect(warning).toHaveCount(0);
   });
 
+  test("lines up inputs that sit side by side, even when a label wraps", async ({ page }) => {
+    const top = async (locator: ReturnType<Page["getByLabel"]>) => (await locator.boundingBox())!.y;
+    const rows = [
+      [page.getByLabel(/^Governing law/), page.getByLabel(/^Jurisdiction/)],
+      [party(page, 1).getByLabel(/^Signatory name/), party(page, 1).getByLabel(/^Title/)],
+    ];
+    // At 1280px the form column is narrow enough for "Jurisdiction City/county and state" to wrap.
+    for (const width of [640, 1024, 1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const [left, right] of rows) {
+        await left.scrollIntoViewIfNeeded();
+        expect(await top(right), `at ${width}px`).toBeCloseTo(await top(left), 0);
+      }
+    }
+  });
+
   test("can be used with the keyboard alone", async ({ page }) => {
     await page.getByLabel(/^Purpose/).focus();
     await page.keyboard.press("Tab");

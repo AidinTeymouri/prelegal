@@ -13,10 +13,14 @@ const inputClass =
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <label className="block">
-      <span className="text-sm font-medium text-zinc-800">{label}</span>
-      {hint && <span className="ml-2 text-xs text-zinc-500">{hint}</span>}
-      <div className="mt-1">{children}</div>
+    // A column with the input pushed to the bottom, so inputs side by side in a grid
+    // row line up even when one label wraps onto a second line.
+    <label className="flex flex-col">
+      <span>
+        <span className="text-sm font-medium text-zinc-800">{label}</span>
+        {hint && <span className="ml-2 text-xs text-zinc-500">{hint}</span>}
+      </span>
+      <div className="mt-auto pt-1">{children}</div>
     </label>
   );
 }
