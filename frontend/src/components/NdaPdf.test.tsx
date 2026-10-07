@@ -11,7 +11,7 @@ import { buildCoverPage, defaultFormData, parseStandardTerms, type NdaFormData }
 
 registerPdfFonts(path.join(process.cwd(), "public", "fonts"));
 
-const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "templates", "Mutual-NDA.md"), "utf8"));
+const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8"));
 
 function completeFormData(): NdaFormData {
   return {

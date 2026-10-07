@@ -2,10 +2,10 @@
 
 The automated tests (`npm test`, `npm run test:e2e`) check behaviour and the text in the PDF. This checklist covers what they can't: how things look, real browsers and PDF viewers, assistive technology, and whether the agreement reads correctly to a person.
 
-Run it before each release, against a production build:
+Run it before each release, against the Docker container (from the repo root):
 
 ```bash
-npm run build && npm start
+scripts/start-mac.sh    # or start-linux.sh / start-windows.ps1; open http://localhost:8000
 ```
 
 Record the browser/OS versions, who ran it and the date in the PR. File anything that fails as a bug, with a screenshot.
@@ -29,9 +29,21 @@ Use these values unless a step says otherwise. They include accents, long text a
   2. Section 9: disputes go to arbitration in Wilmington.
   ```
 
+## 0. Accounts
+
+- [ ] The page shows "Sign in to Prelegal"; the NDA creator is not shown.
+- [ ] **Create an account** with a new email and an 8+ character password: the NDA creator appears and the header shows your email and **Sign out**.
+- [ ] Reload: you are still signed in.
+- [ ] **Sign out**, then sign in with the wrong password: "Incorrect email or password." Sign in with the right one: the NDA creator appears.
+- [ ] Try to create a second account with the same email: "An account with this email already exists."
+- [ ] Stop and start the container (`scripts/stop-mac.sh`, `scripts/start-mac.sh`) and reload: you are signed out and the account no longer exists.
+- [ ] Stop the container while signed in, then click **Sign out**: "Can’t reach the server…" is shown next to the button and you stay on the page.
+
 ## 1. First load
 
-- [ ] The page loads with no errors in the browser console.
+Sign in first.
+
+- [ ] The page loads with no errors in the browser console (a 401 for `/api/auth/me` before signing in is expected).
 - [ ] The form is on the left and the preview on the right (desktop), each scrolling on its own.
 - [ ] The effective date is today's date in your local time zone.
 - [ ] The preview shows amber placeholders for Governing Law and Jurisdiction.

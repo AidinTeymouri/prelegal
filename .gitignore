@@ -1,0 +1,13 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# The local SQLite database (recreated on every start)
+backend/data/
+
+.DS_Store

@@ -15,7 +15,7 @@ vi.mock("@react-pdf/renderer", () => ({ pdf: (element: ReactElement) => pdf(elem
 const registerPdfFonts = vi.fn();
 vi.mock("@/components/NdaPdf", () => ({ NdaPdf: () => null, registerPdfFonts: (dir: string) => registerPdfFonts(dir) }));
 
-const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "templates", "Mutual-NDA.md"), "utf8"));
+const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8"));
 
 const downloadButton = () => screen.getByRole("button", { name: /Download PDF|Generating PDF/ });
 const preview = () => screen.getByRole("article");

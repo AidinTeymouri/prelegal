@@ -1,0 +1,11 @@
+.git
+.env
+.claude
+**/node_modules
+**/__pycache__
+frontend/.next
+frontend/out
+frontend/test-results
+frontend/playwright-report
+backend/.venv
+backend/data
