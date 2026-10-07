@@ -24,16 +24,16 @@ When instructed to build a feature:
 When writing code to make calls to LLMs, use your Cerebras skill to use LiteLLM via OpenRouter to the `openrouter/openai/gpt-oss-120b` model with Cerebras as the inference provider. You should use Structured Outputs so that you can interpret the results and populate fields in the legal document.
 
 There is an OPENROUTER_API_KEY in the .env file in the project root.
-There is an CEREBAS_API_KEY in the .env file in the project root.
+There is a CEREBARS_API_KEY (spelled that way) in the .env file in the project root.
+The .env file also has an optional SESSION_SECRET (currently blank; the backend then uses a random secret per run).
 
 ## Technical design
 
-The entire project should be packaged into a Docker container.  
-The backend should be in backend/ and be a uv project, using FastAPI.  
-The frontend should be in frontend/  
-The database should use SQLLite and be created from scratch each time the Docker container is brought up, allowing for a users table with sign up and sign in.  
-Consider statically building the frontend and serving it via FastAPI, if that will work.  
-There should be scripts in scripts/ for:
+The entire project is packaged into a single Docker container (multi-stage `Dockerfile` in the root).  
+The backend is in backend/ and is a uv project, using FastAPI.  
+The frontend is in frontend/ (Next.js, built as a static export and served by FastAPI).  
+The database is SQLite, recreated from scratch each time the app starts, with a users table for sign up and sign in.  
+Scripts in scripts/ (the Mac and Linux ones wrap `scripts/start.sh` / `scripts/stop.sh`):
 
 ```bash
 # Mac
@@ -49,7 +49,7 @@ scripts/start-windows.ps1
 scripts/stop-windows.ps1
 ```
 
-Backend available at http://localhost:8000
+App and API available at http://localhost:8000
 
 ## Color Scheme
 
@@ -82,3 +82,13 @@ Backend available at http://localhost:8000
 - `POST /api/auth/signin` - Sign in and receive JWT cookie
 - `POST /api/auth/signout` - Clear auth cookie
 - `GET /api/auth/me` - Get current user info (401 if not signed in)
+
+### Implementation notes
+
+- Backend: `app/main.py` (app factory, recreates the DB on startup, serves `frontend/out`), `app/auth.py` (endpoints and the `current_user` dependency for protected routes), `app/db.py` (schema, `get_db`), `app/config.py` (env vars: `DATABASE_PATH`, `STATIC_DIR`, `SESSION_SECRET`, `COOKIE_SECURE`). API errors are `{"detail": "<message>"}`.
+- SQLite connections use `check_same_thread=False`: FastAPI runs a sync dependency and its endpoint on different threads.
+- Frontend: `src/components/App.tsx` gates the app on `/api/auth/me` and shows `AuthForm.tsx` or the NDA creator; `src/lib/api.ts` is the API client. Templates are read at build time from the repo-root `templates/`. Brand colours are Tailwind tokens (`bg-brand-purple`, `text-brand-navy`, ...) in `globals.css`.
+- Next.js 16 is newer than training data: read `frontend/node_modules/next/dist/docs/` before changing Next.js code.
+- Local dev: `cd backend && uv run uvicorn app.main:app --reload`, plus `cd frontend && npm run dev` (port 3000, forwards `/api` to 8000).
+- Tests: `cd backend && uv run pytest`; in frontend/, `npm test`, `npm run lint`, `npm run typecheck`, `npm run test:e2e` (builds the export, serves it with the backend on port 3100, and each test signs up its own user). Manual checklist: `frontend/MANUAL_TESTING.md`.
+- The Windows scripts have not been run yet (no PowerShell on the dev machine).
