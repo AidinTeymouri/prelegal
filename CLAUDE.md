@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation is the V1 technical foundation: a Mutual NDA form with live preview and PDF download, behind email/password sign in. AI chat and the other document types are not built yet.
+The current implementation supports the Mutual NDA only: an AI chat (or a Fields tab) fills it in, with live preview and PDF download, behind email/password sign in. The other document types are not built yet.
 
 ## Development process
 
@@ -75,6 +75,14 @@ App and API available at http://localhost:8000
 - Start/stop scripts for Mac, Linux, Windows
 - Tests: pytest (backend), Vitest (frontend), Playwright e2e against the backend serving the export
 
+### Completed (PREL-5)
+
+- AI chat (default "Chat" tab) fills in the Mutual NDA; the form stays available on a "Fields" tab
+- `POST /api/chat`: stateless (client sends the conversation + current fields), LiteLLM → OpenRouter → Cerebras `gpt-oss-120b`, Structured Outputs
+- Model returns field updates (null = unchanged), validated and merged server-side; it writes both a "missing info" question and a "ready to download" message and the server picks the one that fits
+- Cerebras only (`allow_fallbacks: false`), `max_tokens` 2000, retries on 429 rate limits; the prompt lists the coming weeks' dates because the model is bad at date arithmetic
+- Live model tests: `cd backend && uv run pytest -m live`
+
 ### Current API Endpoints
 
 - `GET /api/health` - Health check
@@ -82,6 +90,7 @@ App and API available at http://localhost:8000
 - `POST /api/auth/signin` - Sign in and receive JWT cookie
 - `POST /api/auth/signout` - Clear auth cookie
 - `GET /api/auth/me` - Get current user info (401 if not signed in)
+- `POST /api/chat` - AI chat turn for the Mutual NDA (auth required): `{messages, fields, today}` → `{reply, fields}`
 
 ### Implementation notes
 
@@ -90,5 +99,5 @@ App and API available at http://localhost:8000
 - Frontend: `src/components/App.tsx` gates the app on `/api/auth/me` and shows `AuthForm.tsx` or the NDA creator; `src/lib/api.ts` is the API client. Templates are read at build time from the repo-root `templates/`. Brand colours are Tailwind tokens (`bg-brand-purple`, `text-brand-navy`, ...) in `globals.css`.
 - Next.js 16 is newer than training data: read `frontend/node_modules/next/dist/docs/` before changing Next.js code.
 - Local dev: `cd backend && uv run uvicorn app.main:app --reload`, plus `cd frontend && npm run dev` (port 3000, forwards `/api` to 8000).
-- Tests: `cd backend && uv run pytest`; in frontend/, `npm test`, `npm run lint`, `npm run typecheck`, `npm run test:e2e` (builds the export, serves it with the backend on port 3100, and each test signs up its own user). Manual checklist: `frontend/MANUAL_TESTING.md`.
+- Tests: `cd backend && uv run pytest` (`-m live` for the real model); in frontend/, `npm test`, `npm run lint`, `npm run typecheck`, `npm run test:e2e` (builds the export, serves it with the backend on port 3100, and each test signs up its own user). Manual checklist: `frontend/MANUAL_TESTING.md`.
 - The Windows scripts have not been run yet (no PowerShell on the dev machine).
