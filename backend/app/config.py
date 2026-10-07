@@ -5,6 +5,8 @@ import secrets
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -19,6 +21,8 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    # For local runs; the Docker container gets the same variables with --env-file.
+    load_dotenv(REPO_ROOT / ".env")
     return Settings(
         database_path=Path(os.environ.get("DATABASE_PATH", REPO_ROOT / "backend" / "data" / "prelegal.db")),
         static_dir=Path(os.environ.get("STATIC_DIR", REPO_ROOT / "frontend" / "out")),

@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import auth
+from app import auth, chat
 from app.config import Settings, load_settings
 from app.db import reset_database
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
     # Reply with one readable message, like the other API errors, instead of FastAPI's error list.
     error = exc.errors()[0]
-    if "error" in error.get("ctx", {}):
+    if error["type"] == "value_error":  # raised by our own validators, already worded for the user
         message = str(error["ctx"]["error"])
     else:
         message = f"{error['loc'][-1]}: {error['msg']}"
@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.include_router(auth.router)
+    app.include_router(chat.router)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
