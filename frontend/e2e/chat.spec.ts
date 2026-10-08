@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
-import { chooseDocument, isExpectedAuthError, signUp } from "./helpers";
+import { chooseDocument, isExpectedAuthError, signUp, startNewDocument } from "./helpers";
 
 // The model is faked in the browser, so these tests are fast and repeatable.
 // backend/tests/test_chat_live.py covers the real model.
@@ -64,6 +64,7 @@ test.describe("AI chat", () => {
     page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text(), [401, 502]) && consoleErrors.push(msg.text()));
     page.on("pageerror", (err) => consoleErrors.push(err.message));
     await signUp(page);
+    await startNewDocument(page);
   });
 
   test.afterEach(() => {

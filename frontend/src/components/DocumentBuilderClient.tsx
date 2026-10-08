@@ -7,5 +7,9 @@ import dynamic from "next/dynamic";
 // hydration mismatch.
 export const DocumentBuilderClient = dynamic(() => import("@/components/DocumentBuilder").then((m) => m.DocumentBuilder), {
   ssr: false,
-  loading: () => <p className="p-6 text-sm text-zinc-500">Loading…</p>,
+  loading: () => (
+    <p role="status" className="p-6 text-sm text-zinc-500">
+      Loading…
+    </p>
+  ),
 });

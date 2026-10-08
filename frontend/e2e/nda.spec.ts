@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { PDFParse } from "pdf-parse";
-import { chooseDocument, isExpectedAuthError, signUp } from "./helpers";
+import { chooseDocument, isExpectedAuthError, signUp, startNewDocument } from "./helpers";
 
 const preview = (page: Page) => page.getByRole("article");
 const party = (page: Page, n: 1 | 2) => page.getByRole("group", { name: `Party ${n}` });
@@ -42,6 +42,7 @@ test.describe("Mutual NDA creator", () => {
     page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text()) && consoleErrors.push(msg.text()));
     page.on("pageerror", (err) => consoleErrors.push(err.message));
     await signUp(page);
+    await startNewDocument(page);
     await chooseDocument(page, "mutual-nda");
     await page.getByRole("tab", { name: "Fields" }).click();
     await expect(page.getByLabel(/^Purpose/)).toBeVisible();
@@ -52,8 +53,7 @@ test.describe("Mutual NDA creator", () => {
   });
 
   test("loads with the form, the preview and the standard terms", async ({ page }) => {
-    await expect(page).toHaveTitle("Legal Agreement Creator · Prelegal");
-    await expect(page.getByText("Legal agreement creator")).toBeVisible();
+    await expect(page).toHaveTitle("Prelegal · Draft legal agreements with AI");
     await expect(preview(page).getByRole("heading", { name: "Mutual Non-Disclosure Agreement", exact: true })).toBeVisible();
     await expect(preview(page).getByRole("heading", { name: "Standard Terms" })).toBeAttached();
     await expect(preview(page).getByText("Equitable Relief", { exact: true })).toBeAttached();
@@ -256,10 +256,12 @@ test.describe("time zones", () => {
 
       test("uses the browser's local date without hydration errors", async ({ page }) => {
         const errors: string[] = [];
-        page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text()) && errors.push(msg.text()));
+        // 404: the new document isn't saved yet when the page reloads, so there's nothing to load.
+        page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text(), [401, 404]) && errors.push(msg.text()));
         page.on("pageerror", (err) => errors.push(err.message));
         await signUp(page);
-        // Reload so the NDA creator is rendered on a fresh page load, not just after signing in.
+        await startNewDocument(page);
+        // Reload so the editor is rendered on a fresh page load, not just after signing in.
         await page.reload();
         await chooseDocument(page, "mutual-nda");
         await page.getByRole("tab", { name: "Fields" }).click();
@@ -276,6 +278,7 @@ test.describe("on a phone", () => {
 
   test("stacks the form above the preview without horizontal scrolling", async ({ page }) => {
     await signUp(page);
+    await startNewDocument(page);
     await chooseDocument(page, "mutual-nda");
     await page.getByRole("tab", { name: "Fields" }).click();
     const form = page.getByLabel(/^Purpose/);

@@ -5,11 +5,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Prelegal brand colours, e.g. bg-brand-purple, text-brand-navy. */
+/* Prelegal brand colours, e.g. bg-brand-purple, text-brand-navy. The -dark shades are for
+   hover states and for text, where the base colours are too light to read on white. */
 @theme {
   --color-brand-yellow: #ecad0a;
   --color-brand-blue: #209dd7;
+  --color-brand-blue-dark: #1a7fae;
   --color-brand-purple: #753991;
+  --color-brand-purple-dark: #5e2c75;
   --color-brand-navy: #032147;
   --color-brand-gray: #888888;
 }

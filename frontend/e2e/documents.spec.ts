@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { PDFParse } from "pdf-parse";
-import { chooseDocument, isExpectedAuthError, signUp } from "./helpers";
+import { chooseDocument, isExpectedAuthError, signUp, startNewDocument } from "./helpers";
 
 type Field = { key: string; label: string; type: string; required?: boolean };
 type Spec = { id: string; name: string; filename: string; parties: [string, string]; sections: { title: string; fields: Field[] }[] };
@@ -17,6 +17,7 @@ test.describe("every document", () => {
       page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text()) && consoleErrors.push(msg.text()));
       page.on("pageerror", (err) => consoleErrors.push(err.message));
       await signUp(page);
+      await startNewDocument(page);
       await chooseDocument(page, spec.id);
       await page.getByRole("tab", { name: "Fields" }).click();
 

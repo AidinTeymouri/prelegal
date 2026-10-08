@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { ChatMessage } from "@/lib/api";
+import { buttonClass, inputClass } from "@/lib/ui";
 
 type Props = {
   messages: ChatMessage[];
@@ -87,12 +88,12 @@ export function DocumentChat({ messages, pending, error, onSend, onRetry }: Prop
           onKeyDown={onKeyDown}
           aria-label="Message"
           placeholder="Type your message…"
-          className="min-w-0 flex-1 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+          className={`min-w-0 flex-1 resize-none ${inputClass}`}
         />
         <button
           type="submit"
           disabled={pending || !draft.trim()}
-          className="rounded-md bg-brand-purple px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-purple/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className={buttonClass("primary")}
         >
           Send
         </button>

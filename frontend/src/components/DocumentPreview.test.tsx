@@ -37,7 +37,7 @@ describe("DocumentPreview", () => {
   it("highlights the filled-in values", () => {
     renderPreview(completeFormData());
     for (const text of ["March 15, 2026", "Delaware", "New Castle, DE", "1 year"]) {
-      expect(screen.getAllByText(text)[0]).toHaveClass("bg-indigo-50");
+      expect(screen.getAllByText(text)[0]).toHaveClass("bg-brand-blue/10");
     }
   });
 

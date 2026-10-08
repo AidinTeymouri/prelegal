@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { isEnabled, type DocumentData, type DocumentSpec, type FieldSpec, type Party } from "@/lib/documents";
+import { inputClass } from "@/lib/ui";
 
 type Props = {
   spec: DocumentSpec;
@@ -9,8 +10,6 @@ type Props = {
   onChange: (data: DocumentData) => void;
 };
 
-const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -69,7 +68,7 @@ function NumberInput({
         if (Number.isInteger(n) && n >= min && n <= max) onChange(n);
       }}
       onBlur={() => setDraft(String(value))}
-      className="mx-1 w-16 rounded-md border border-zinc-300 px-2 py-1 text-sm disabled:bg-zinc-100 disabled:text-zinc-400"
+      className="mx-1 w-16 rounded-md border border-zinc-300 px-2 py-1 text-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20 disabled:bg-zinc-100 disabled:text-zinc-400"
       aria-label={field.label}
     />
   );
@@ -110,7 +109,7 @@ function FieldInput({
                   <input
                     type="radio"
                     name={field.key}
-                    className="mr-2"
+                    className="mr-2 accent-brand-purple"
                     checked={value === option.value}
                     onChange={() => set(field.key, option.value)}
                   />

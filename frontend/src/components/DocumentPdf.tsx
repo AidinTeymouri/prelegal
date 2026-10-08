@@ -1,5 +1,6 @@
 import { Document, Font, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { CoverPage } from "@/lib/cover";
+import { DISCLAIMER } from "@/lib/disclaimer";
 import type { Inline } from "@/lib/inline";
 import { clauseLabel, type TermsBlock } from "@/lib/terms";
 
@@ -28,13 +29,15 @@ export function registerPdfFonts(fontDir: string) {
 
 const styles = StyleSheet.create({
   page: { paddingVertical: 48, paddingHorizontal: 60, fontFamily: FONT_FAMILY, fontSize: 10, lineHeight: 1.35 },
+  pageFooter: { position: "absolute", bottom: 18, left: 60, right: 60, borderTopWidth: 0.5, borderColor: "#999999", paddingTop: 4 },
+  pageFooterText: { fontSize: 7.5, lineHeight: 1.3, color: "#666666" },
   title: { fontWeight: "bold", fontSize: 16, textAlign: "center", marginBottom: 10 },
   paragraph: { marginBottom: 5 },
   sectionTitle: { fontWeight: "bold", marginTop: 4, marginBottom: 1 },
   hint: { fontWeight: "normal", fontStyle: "italic", fontSize: 9, color: "#666666" },
   bold: { fontWeight: "bold" },
   term: { textDecoration: "underline" },
-  link: { color: "#3730a3", textDecoration: "underline" },
+  link: { color: "#1a7fae", textDecoration: "underline" },
   table: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#999999", marginVertical: 6 },
   row: { flexDirection: "row" },
   cell: { borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#999999", padding: 4, minHeight: 22 },
@@ -75,6 +78,15 @@ function Inlines({ content }: { content: Inline[] }) {
         );
     }
   });
+}
+
+// On every page: the drafts disclaimer, below the page's content.
+function PageFooter() {
+  return (
+    <View fixed style={styles.pageFooter}>
+      <Text style={styles.pageFooterText}>Draft. {DISCLAIMER}</Text>
+    </View>
+  );
 }
 
 export function DocumentPdf({ cover, terms }: { cover: CoverPage; terms: TermsBlock[] }) {
@@ -130,6 +142,7 @@ export function DocumentPdf({ cover, terms }: { cover: CoverPage; terms: TermsBl
         <Text style={styles.footnote}>
           <Inlines content={cover.attribution} />
         </Text>
+        <PageFooter />
       </Page>
 
       <Page size="LETTER" style={styles.page}>
@@ -158,6 +171,7 @@ export function DocumentPdf({ cover, terms }: { cover: CoverPage; terms: TermsBl
               );
           }
         })}
+        <PageFooter />
       </Page>
     </Document>
   );

@@ -1,5 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { ApiError, sendChat, type ChatMessage, type Draft } from "@/lib/api";
+import { errorMessage, sendChat, type ChatMessage, type Draft } from "@/lib/api";
 import { todayIso, type DocumentData } from "@/lib/documents";
 
 export const GREETING =
@@ -28,11 +28,16 @@ export function applyChanges(current: Draft, sent: Draft, returned: Draft): Draf
   return { document: current.document, fields };
 }
 
+export const LOST_REPLY = "The assistant’s last reply didn’t arrive.";
+
 // The conversation with the assistant. Each reply updates the draft through setDraft.
-export function useDocumentChat(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) {
-  const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: GREETING }]);
+// A saved conversation can be passed in to carry on with it.
+export function useDocumentChat(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>, initialMessages?: ChatMessage[]) {
+  const [messages, setMessages] = useState<ChatMessage[]>(() => initialMessages ?? [{ role: "assistant", content: GREETING }]);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // A saved conversation that ends with the user's message lost its reply (e.g. the page was
+  // closed while waiting), so offer Retry.
+  const [error, setError] = useState<string | null>(() => (initialMessages?.at(-1)?.role === "user" ? LOST_REPLY : null));
 
   async function request(conversation: ChatMessage[]) {
     const sent = draft;
@@ -43,7 +48,7 @@ export function useDocumentChat(draft: Draft, setDraft: Dispatch<SetStateAction<
       setMessages([...conversation, { role: "assistant", content: reply }]);
       setDraft((current) => applyChanges(current, sent, returned));
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
+      setError(errorMessage(e));
     } finally {
       setPending(false);
     }

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { AuthForm } from "@/components/AuthForm";
 import { ApiError, signIn, signUp, type User } from "@/lib/api";
+import { DISCLAIMER } from "@/lib/disclaimer";
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
@@ -22,7 +23,7 @@ describe("AuthForm", () => {
 
   beforeEach(() => {
     onSignedIn = vi.fn<(user: User) => void>();
-    render(<AuthForm onSignedIn={onSignedIn} />);
+    render(<AuthForm onSignedIn={onSignedIn} documentNames={["Mutual Non-Disclosure Agreement", "Pilot Agreement"]} />);
   });
 
   afterEach(() => vi.clearAllMocks());
@@ -56,6 +57,7 @@ describe("AuthForm", () => {
     expect(screen.getByLabelText(/^Password/)).toHaveAttribute("minlength", "8");
 
     await fill(user, "ada@example.com", "correct horse");
+    await user.type(screen.getByLabelText("Confirm password"), "correct horse");
     await user.keyboard("{Enter}");
 
     expect(signUp).toHaveBeenCalledWith({ email: "ada@example.com", password: "correct horse" });
@@ -113,5 +115,51 @@ describe("AuthForm", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     // What was typed is kept.
     expect(screen.getByLabelText("Email")).toHaveValue("ada@example.com");
+  });
+
+  it("checks that the two passwords match before creating an account", async () => {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Create an account" }));
+
+    await fill(user, "ada@example.com", "correct horse");
+    await user.type(screen.getByLabelText("Confirm password"), "correct hose");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("The passwords don’t match.");
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("aria-invalid", "true");
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("only asks to confirm the password when signing up", async () => {
+    const user = userEvent.setup();
+    expect(screen.queryByLabelText("Confirm password")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Create an account" }));
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("autocomplete", "new-password");
+  });
+
+  it("shows and hides the passwords", async () => {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Create an account" }));
+    const toggle = screen.getByRole("button", { name: "Show password" });
+
+    await user.click(toggle);
+    expect(screen.getByLabelText(/^Password/)).toHaveAttribute("type", "text");
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: "Hide password" })).toHaveAttribute("aria-controls", "password confirm-password");
+
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(screen.getByLabelText(/^Password/)).toHaveAttribute("type", "password");
+  });
+
+  it("shows the drafts disclaimer when signing up", async () => {
+    const user = userEvent.setup();
+    expect(screen.queryByText(new RegExp(DISCLAIMER.slice(0, 40)))).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Create an account" }));
+    expect(screen.getByText(/By creating an account you acknowledge/)).toHaveTextContent(DISCLAIMER);
+  });
+
+  it("lists the documents Prelegal can draft", () => {
+    expect(screen.getByText("Pilot Agreement")).toBeInTheDocument();
+    expect(screen.getByText("2 agreements to choose from")).toBeInTheDocument();
   });
 });

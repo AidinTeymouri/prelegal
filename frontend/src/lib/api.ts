@@ -15,6 +15,11 @@ export class ApiError extends Error {
   }
 }
 
+const SOMETHING_WENT_WRONG = "Something went wrong. Please try again.";
+
+// What to tell the user about a failed request: the server's message, or a generic one.
+export const errorMessage = (e: unknown, fallback = SOMETHING_WENT_WRONG) => (e instanceof ApiError ? e.message : fallback);
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let response: Response;
   try {
@@ -31,7 +36,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       .json()
       .then((json: { detail?: unknown }) => json.detail)
       .catch(() => undefined);
-    throw new ApiError(typeof detail === "string" ? detail : "Something went wrong. Please try again.", response.status);
+    throw new ApiError(typeof detail === "string" ? detail : SOMETHING_WENT_WRONG, response.status);
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }
@@ -61,3 +66,14 @@ export type ChatReply = { reply: string } & Draft;
 // assistant's reply and the draft with its changes (possibly a new document) come back.
 export const sendChat = (messages: ChatMessage[], draft: Draft, today: string) =>
   request<ChatReply>("POST", "/chat", { messages, ...draft, today });
+
+// The user's saved documents (autosaved drafts). A new document gets an id from the
+// browser; saving creates it or replaces it.
+export type DraftContent = Draft & { messages: ChatMessage[] };
+export type DraftSummary = { id: string; document: string | null; title: string; ready: boolean; updatedAt: string };
+export type SavedDraft = DraftSummary & DraftContent & { createdAt: string };
+
+export const listDrafts = () => request<DraftSummary[]>("GET", "/documents");
+export const getDraft = (id: string) => request<SavedDraft>("GET", `/documents/${id}`);
+export const saveDraft = (id: string, content: DraftContent) => request<SavedDraft>("PUT", `/documents/${id}`, content);
+export const deleteDraft = (id: string) => request<void>("DELETE", `/documents/${id}`);
