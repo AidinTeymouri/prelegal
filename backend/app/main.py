@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import auth, chat
+from app import auth, chat, drafts
 from app.config import Settings, load_settings
 from app.db import reset_database
 
@@ -38,6 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.include_router(auth.router)
     app.include_router(chat.router)
+    app.include_router(drafts.router)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

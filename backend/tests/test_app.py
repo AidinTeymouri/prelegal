@@ -55,6 +55,12 @@ def test_the_database_has_a_users_table(client: TestClient, settings):
     assert columns == ["id", "email", "password_hash", "created_at"]
 
 
+def test_the_database_has_a_drafts_table(client: TestClient, settings):
+    with sqlite3.connect(settings.database_path) as conn:
+        columns = [row[1] for row in conn.execute("PRAGMA table_info(drafts)")]
+    assert columns == ["id", "user_id", "document", "title", "ready", "fields", "messages", "created_at", "updated_at"]
+
+
 def test_handles_concurrent_requests(client: TestClient):
     # Regression: connections were used across threadpool threads, giving 500s under load.
     def sign_up(n: int) -> int:

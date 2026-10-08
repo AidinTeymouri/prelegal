@@ -24,7 +24,10 @@ MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_BYTES = 72  # bcrypt only uses the first 72 bytes and rejects longer passwords
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-Db = Annotated[sqlite3.Connection, Depends(get_db)]
+# scope="function": commit before the response is sent, not after (the default for `yield`
+# dependencies), so the client's next request (e.g. listing documents right after signing
+# up) sees the changes.
+Db = Annotated[sqlite3.Connection, Depends(get_db, scope="function")]
 
 
 class User(BaseModel):
