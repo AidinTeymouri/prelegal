@@ -152,6 +152,14 @@ describe("NdaForm", () => {
   });
 
   describe("years input", () => {
+    it("shows a new value set from outside the form, e.g. by the AI chat", () => {
+      const data = { ...defaultFormData(), mndaTermYears: 1, confidentialityYears: 1 };
+      const { rerender } = render(<NdaForm data={data} onChange={() => {}} />);
+      rerender(<NdaForm data={{ ...data, mndaTermYears: 3, confidentialityYears: 7 }} onChange={() => {}} />);
+      expect(screen.getByLabelText("MNDA term in years")).toHaveValue(3);
+      expect(screen.getByLabelText("Term of confidentiality in years")).toHaveValue(7);
+    });
+
     it("can be cleared and retyped without the model ever seeing an invalid value", async () => {
       const { user, onChange } = setup();
       const input = yearsInputs()[0];

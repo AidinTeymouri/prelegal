@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, getCurrentUser, signIn, signOut, signUp } from "@/lib/api";
+import { ApiError, getCurrentUser, sendChat, signIn, signOut, signUp } from "@/lib/api";
+import { defaultFormData } from "@/lib/nda";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -73,6 +74,21 @@ describe("api", () => {
     it("throws other errors", async () => {
       mockFetch(json(500, { detail: "Internal Server Error" }));
       await expect(getCurrentUser()).rejects.toMatchObject({ status: 500 });
+    });
+  });
+});
+
+describe("sendChat", () => {
+  it("posts the conversation, the fields and today's date", async () => {
+    const fields = defaultFormData();
+    const fetch = mockFetch(json(200, { reply: "Thanks!", fields }));
+    const messages = [{ role: "user" as const, content: "Acme and Globex" }];
+
+    await expect(sendChat(messages, fields, "2026-10-07")).resolves.toEqual({ reply: "Thanks!", fields });
+    expect(fetch).toHaveBeenCalledWith("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages, fields, today: "2026-10-07" }),
     });
   });
 });

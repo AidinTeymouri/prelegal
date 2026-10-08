@@ -48,6 +48,12 @@ function YearsInput({
   onChange: (n: number) => void;
 }) {
   const [draft, setDraft] = useState(String(value));
+  // Show the new value when it changes from outside, e.g. when the AI chat fills it in.
+  const [shownValue, setShownValue] = useState(value);
+  if (value !== shownValue) {
+    setShownValue(value);
+    setDraft(String(value));
+  }
   return (
     <input
       type="number"

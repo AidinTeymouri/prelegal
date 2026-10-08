@@ -39,9 +39,23 @@ Use these values unless a step says otherwise. They include accents, long text a
 - [ ] Stop and start the container (`scripts/stop-mac.sh`, `scripts/start-mac.sh`) and reload: you are signed out and the account no longer exists.
 - [ ] Stop the container while signed in, then click **Sign out**: "Can’t reach the server…" is shown next to the button and you stay on the page.
 
+## 0b. AI chat
+
+Needs `OPENROUTER_API_KEY` in `.env`. Sign in first.
+
+- [ ] The Chat tab is selected and shows the assistant's greeting; the message box has focus.
+- [ ] Answer in free form, e.g. "Acme Inc. and Globex, we're exploring a joint product. Delaware law, disputes in New Castle County. Start next Monday, 2 years, confidentiality forever." The reply arrives within a few seconds ("Assistant is typing…" meanwhile), confirms what it filled in, and asks for anything still missing. The preview shows the values, the purpose describes the joint product, and "next Monday" is the right date.
+- [ ] Once nothing required is missing, the assistant says the NDA is ready to download and offers the optional details; **Download PDF** is enabled.
+- [ ] Give a signatory's name, title and email: they appear in the signature table.
+- [ ] Change something ("make it 3 years instead"): the preview updates.
+- [ ] Ask something unrelated ("write me a poem"): the assistant steers back to the NDA.
+- [ ] Shift+Enter adds a line; Enter sends. The conversation scrolls to the newest message.
+- [ ] Switch to **Fields**: the values match. Change the governing law there, go back to **Chat**: the conversation and any unsent text are still there, and the assistant knows about the change if asked.
+- [ ] Start the app without `OPENROUTER_API_KEY`, send a message: an error explains the assistant isn't set up, with **Retry**.
+
 ## 1. First load
 
-Sign in first.
+Sign in first and open the **Fields** tab.
 
 - [ ] The page loads with no errors in the browser console (a 401 for `/api/auth/me` before signing in is expected).
 - [ ] The form is on the left and the preview on the right (desktop), each scrolling on its own.

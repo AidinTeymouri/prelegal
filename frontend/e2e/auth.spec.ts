@@ -23,19 +23,19 @@ test.describe("accounts", () => {
     await page.goto("/");
     await expect(page).toHaveTitle("Mutual NDA Creator · Prelegal");
     await expect(signInHeading(page)).toBeVisible();
-    await expect(page.getByLabel(/^Purpose/)).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
   });
 
   test("signs up, stays signed in across reloads, signs out and signs back in", async ({ page, context }) => {
     const email = await signUp(page);
     await expect(page.getByText(email)).toBeVisible();
-    await expect(page.getByLabel(/^Purpose/)).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
 
     const [cookie] = await context.cookies();
     expect(cookie).toMatchObject({ name: "prelegal_session", httpOnly: true, sameSite: "Lax" });
 
     await page.reload();
-    await expect(page.getByLabel(/^Purpose/)).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
 
     await page.getByRole("button", { name: "Sign out" }).click();
     await expect(signInHeading(page)).toBeVisible();
@@ -45,7 +45,7 @@ test.describe("accounts", () => {
     await page.getByLabel("Email").fill(email.toUpperCase());
     await page.getByLabel(/^Password/).fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByLabel(/^Purpose/)).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
   });
 
   test("rejects a wrong password", async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe("accounts", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(formError(page)).toHaveText("Incorrect email or password.");
-    await expect(page.getByLabel(/^Purpose/)).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
   });
 
   test("won't create a second account for the same email", async ({ page }) => {
