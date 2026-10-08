@@ -1,4 +1,4 @@
-import type { NdaFormData } from "@/lib/nda";
+import type { DocumentData } from "@/lib/documents";
 
 // Client for the FastAPI backend. In production it serves this app, so the API
 // is on the same origin; in development `next dev` forwards /api to it.
@@ -53,9 +53,11 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
-export type ChatReply = { reply: string; fields: NdaFormData };
+// The document being drafted (null until one is chosen) and its field data.
+export type Draft = { document: string | null; fields: DocumentData | null };
+export type ChatReply = { reply: string } & Draft;
 
-// One turn of the NDA chat: the whole conversation and the current fields go up,
-// the assistant's reply and the fields with its changes applied come back.
-export const sendChat = (messages: ChatMessage[], fields: NdaFormData, today: string) =>
-  request<ChatReply>("POST", "/chat", { messages, fields, today });
+// One turn of the chat: the whole conversation and the current draft go up; the
+// assistant's reply and the draft with its changes (possibly a new document) come back.
+export const sendChat = (messages: ChatMessage[], draft: Draft, today: string) =>
+  request<ChatReply>("POST", "/chat", { messages, ...draft, today });

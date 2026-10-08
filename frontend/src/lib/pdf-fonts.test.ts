@@ -1,16 +1,16 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { coverageRanges } from "../../scripts/font-coverage.mjs";
-import { buildCoverPage, defaultFormData, parseStandardTerms, type Inline, type NdaFormData } from "@/lib/nda";
+import { buildCoverPage } from "@/lib/cover";
+import type { DocumentData } from "@/lib/documents";
+import type { Inline } from "@/lib/inline";
 import { PDF_FONT_COVERAGE } from "@/lib/pdf-font-coverage";
 import { unsupportedPdfCharacters } from "@/lib/pdf-fonts";
+import { data as documentData, DOCUMENTS } from "@/testing/documents";
 
-function withText(fields: Partial<NdaFormData>, company = ""): NdaFormData {
-  const data = { ...defaultFormData(), ...fields };
-  data.party1 = { ...data.party1, company };
-  return data;
+function withText(values: Record<string, string>, company = ""): DocumentData {
+  return documentData("mutual-nda", values, [{ company }]);
 }
 
 describe("PDF_FONT_COVERAGE", () => {
@@ -26,10 +26,9 @@ describe("PDF_FONT_COVERAGE", () => {
     }
   });
 
-  it("covers every character of the fixed agreement text", () => {
+  it.each(DOCUMENTS.map((d) => [d.spec.name, d] as const))("covers every character of the fixed %s text", (_, { spec, terms }) => {
     const plain = (inlines: Inline[]) => inlines.map((i) => i.text).join("");
-    const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8"));
-    const cover = buildCoverPage(defaultFormData());
+    const cover = buildCoverPage(spec, documentData(spec.id));
     const text = [
       cover.title,
       cover.introHeading,
@@ -37,6 +36,7 @@ describe("PDF_FONT_COVERAGE", () => {
       cover.signingStatement,
       plain(cover.attribution),
       ...cover.sections.flatMap((s) => [s.title, s.hint ?? "", ...s.paragraphs.map(plain)]),
+      ...cover.partyLabels,
       ...cover.signatureRows.flatMap((r) => [r.label, r.hint ?? ""]),
       ...terms.map((b) => (b.kind === "heading" ? b.text : plain(b.content))),
     ].join("");
@@ -47,7 +47,7 @@ describe("PDF_FONT_COVERAGE", () => {
 
 describe("unsupportedPdfCharacters", () => {
   it("accepts the default form", () => {
-    expect(unsupportedPdfCharacters(defaultFormData())).toEqual([]);
+    expect(unsupportedPdfCharacters(documentData("mutual-nda"))).toEqual([]);
   });
 
   it.each([
@@ -81,14 +81,11 @@ describe("unsupportedPdfCharacters", () => {
     expect(unsupportedPdfCharacters(withText({ purpose: "会社 and 会社" }, "社長"))).toEqual(["会", "社", "長"]);
   });
 
-  it("checks every free-text field, including both parties", () => {
-    const data = defaultFormData();
-    data.purpose = "一";
-    data.governingLaw = "二";
-    data.jurisdiction = "三";
-    data.modifications = "四";
-    data.party1 = { company: "五", name: "六", title: "七", noticeAddress: "八" };
-    data.party2 = { company: "九", name: "十", title: "百", noticeAddress: "千" };
+  it("checks every field, including both parties", () => {
+    const data = documentData("mutual-nda", { purpose: "一", governingLaw: "二", chosenCourts: "三", modifications: "四" }, [
+      { company: "五", name: "六", title: "七", noticeAddress: "八" },
+      { company: "九", name: "十", title: "百", noticeAddress: "千" },
+    ]);
     expect(unsupportedPdfCharacters(data)).toEqual(["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "百", "千"]);
   });
 

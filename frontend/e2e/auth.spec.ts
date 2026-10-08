@@ -19,9 +19,9 @@ test.describe("accounts", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("asks visitors to sign in before they can use the NDA creator", async ({ page }) => {
+  test("asks visitors to sign in before they can use the document creator", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle("Mutual NDA Creator · Prelegal");
+    await expect(page).toHaveTitle("Legal Agreement Creator · Prelegal");
     await expect(signInHeading(page)).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
   });

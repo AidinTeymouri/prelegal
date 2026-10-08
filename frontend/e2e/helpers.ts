@@ -20,3 +20,8 @@ export async function signUp(page: Page, email = uniqueEmail()) {
 // 401 from /api/auth/me when nobody is signed in yet.
 export const isExpectedAuthError = (text: string, statuses = [401]) =>
   statuses.some((status) => text.includes(`the server responded with a status of ${status}`));
+
+// Picks a document from the picker above the Chat and Fields tabs.
+export async function chooseDocument(page: Page, id: string) {
+  await page.getByRole("combobox", { name: "Document" }).selectOption(id);
+}

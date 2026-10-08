@@ -1,5 +1,5 @@
 import { PDF_FONT_COVERAGE } from "@/lib/pdf-font-coverage";
-import type { NdaFormData } from "@/lib/nda";
+import type { DocumentData } from "@/lib/documents";
 
 function canDraw(codePoint: number): boolean {
   let lo = 0;
@@ -16,13 +16,10 @@ function canDraw(codePoint: number): boolean {
 
 // Characters in the form that the PDF fonts can't draw (e.g. Chinese, Arabic or
 // emoji), in the order they first appear. They would come out garbled in the PDF.
-export function unsupportedPdfCharacters(data: NdaFormData): string[] {
+export function unsupportedPdfCharacters(data: DocumentData): string[] {
   const text = [
-    data.purpose,
-    data.governingLaw,
-    data.jurisdiction,
-    data.modifications,
-    ...[data.party1, data.party2].flatMap((p) => [p.company, p.name, p.title, p.noticeAddress]),
+    ...Object.values(data.values).map(String),
+    ...data.parties.flatMap((p) => [p.company, p.name, p.title, p.noticeAddress]),
   ].join("");
   const unsupported = new Set<string>();
   for (const char of text) {

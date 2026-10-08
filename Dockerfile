@@ -17,6 +17,8 @@ WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
 RUN uv sync --frozen --no-dev
 COPY backend/app ./app
+# The document spec (app/documents.py reads it from the repo layout: /app/templates).
+COPY templates/documents.json /app/templates/documents.json
 COPY --from=frontend /app/frontend/out /app/static
 
 # The database lives inside the container (no volume) and is recreated on every start.

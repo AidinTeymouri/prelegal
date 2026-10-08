@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { PDFParse } from "pdf-parse";
-import { isExpectedAuthError, signUp } from "./helpers";
+import { chooseDocument, isExpectedAuthError, signUp } from "./helpers";
 
 const preview = (page: Page) => page.getByRole("article");
 const party = (page: Page, n: 1 | 2) => page.getByRole("group", { name: `Party ${n}` });
@@ -9,10 +9,10 @@ const downloadButton = (page: Page) => page.getByRole("button", { name: /Downloa
 
 async function fillForm(page: Page) {
   await page.getByLabel(/^Purpose/).fill("Exploring a joint venture for widgets.");
-  await page.getByLabel(/^Effective date/).fill("2026-03-15");
-  await page.getByLabel(/^Governing law/).fill("Delaware");
+  await page.getByLabel(/^Effective Date/).fill("2026-03-15");
+  await page.getByLabel(/^Governing Law/).fill("Delaware");
   await page.getByLabel(/^Jurisdiction/).fill("New Castle, DE");
-  await page.getByLabel(/^MNDA modifications/).fill("Section 9 is governed by New York law.");
+  await page.getByLabel(/^MNDA Modifications/).fill("Section 9 is governed by New York law.");
   for (const [n, p] of [
     [1, { company: "Acme Inc.", name: "Ada Lovelace", title: "CEO", address: "legal@acme.test" }],
     [2, { company: "Globex", name: "Alan Turing", title: "CTO", address: "1 Main St, Springfield" }],
@@ -42,6 +42,7 @@ test.describe("Mutual NDA creator", () => {
     page.on("console", (msg) => msg.type() === "error" && !isExpectedAuthError(msg.text()) && consoleErrors.push(msg.text()));
     page.on("pageerror", (err) => consoleErrors.push(err.message));
     await signUp(page);
+    await chooseDocument(page, "mutual-nda");
     await page.getByRole("tab", { name: "Fields" }).click();
     await expect(page.getByLabel(/^Purpose/)).toBeVisible();
   });
@@ -51,13 +52,13 @@ test.describe("Mutual NDA creator", () => {
   });
 
   test("loads with the form, the preview and the standard terms", async ({ page }) => {
-    await expect(page).toHaveTitle("Mutual NDA Creator · Prelegal");
-    await expect(page.getByText("Mutual NDA creator")).toBeVisible();
+    await expect(page).toHaveTitle("Legal Agreement Creator · Prelegal");
+    await expect(page.getByText("Legal agreement creator")).toBeVisible();
     await expect(preview(page).getByRole("heading", { name: "Mutual Non-Disclosure Agreement", exact: true })).toBeVisible();
     await expect(preview(page).getByRole("heading", { name: "Standard Terms" })).toBeAttached();
     await expect(preview(page).getByText("Equitable Relief", { exact: true })).toBeAttached();
     await expect(downloadButton(page)).toBeDisabled();
-    await expect(page.getByText("Still needed: Governing law, Jurisdiction, Party 1 company, Party 2 company")).toBeVisible();
+    await expect(page.getByText("Still needed: Governing Law, Jurisdiction, Party 1 company, Party 2 company")).toBeVisible();
   });
 
   test("defaults the effective date to today", async ({ page }) => {
@@ -65,7 +66,7 @@ test.describe("Mutual NDA creator", () => {
       const d = new Date();
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     });
-    await expect(page.getByLabel(/^Effective date/)).toHaveValue(today);
+    await expect(page.getByLabel(/^Effective Date/)).toHaveValue(today);
   });
 
   test("updates the preview as the form is filled in", async ({ page }) => {
@@ -114,7 +115,7 @@ test.describe("Mutual NDA creator", () => {
     await expect(termYears).toHaveValue("4");
 
     await termYears.fill("");
-    await page.getByLabel(/^Governing law/).click();
+    await page.getByLabel(/^Governing Law/).click();
     await expect(termYears).toHaveValue("4");
   });
 
@@ -198,10 +199,9 @@ test.describe("Mutual NDA creator", () => {
   test("lines up inputs that sit side by side, even when a label wraps", async ({ page }) => {
     const top = async (locator: ReturnType<Page["getByLabel"]>) => (await locator.boundingBox())!.y;
     const rows = [
-      [page.getByLabel(/^Governing law/), page.getByLabel(/^Jurisdiction/)],
       [party(page, 1).getByLabel(/^Signatory name/), party(page, 1).getByLabel(/^Title/)],
+      [party(page, 2).getByLabel(/^Signatory name/), party(page, 2).getByLabel(/^Title/)],
     ];
-    // At 1280px the form column is narrow enough for "Jurisdiction City/county and state" to wrap.
     for (const width of [640, 1024, 1280, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       for (const [left, right] of rows) {
@@ -214,16 +214,16 @@ test.describe("Mutual NDA creator", () => {
   test("can be used with the keyboard alone", async ({ page }) => {
     await page.getByLabel(/^Purpose/).focus();
     await page.keyboard.press("Tab");
-    await expect(page.getByLabel(/^Effective date/)).toBeFocused();
+    await expect(page.getByLabel(/^Effective Date/)).toBeFocused();
 
     await page.getByRole("radio", { name: /^Expires/ }).focus();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("radio", { name: "Continues until terminated" })).toBeChecked();
 
-    await page.getByLabel(/^Governing law/).focus();
+    await page.getByLabel(/^Governing Law/).focus();
     await page.keyboard.type("Delaware");
     await page.keyboard.press("Enter"); // must not submit the form or reload the page
-    await expect(page.getByLabel(/^Governing law/)).toHaveValue("Delaware");
+    await expect(page.getByLabel(/^Governing Law/)).toHaveValue("Delaware");
   });
 
   test("opens the Common Paper and license links in a new tab", async ({ page }) => {
@@ -261,9 +261,10 @@ test.describe("time zones", () => {
         await signUp(page);
         // Reload so the NDA creator is rendered on a fresh page load, not just after signing in.
         await page.reload();
+        await chooseDocument(page, "mutual-nda");
         await page.getByRole("tab", { name: "Fields" }).click();
         const today = await page.evaluate(() => new Date().toLocaleDateString("en-CA"));
-        await expect(page.getByLabel(/^Effective date/)).toHaveValue(today);
+        await expect(page.getByLabel(/^Effective Date/)).toHaveValue(today);
         expect(errors).toEqual([]);
       });
     });
@@ -275,6 +276,7 @@ test.describe("on a phone", () => {
 
   test("stacks the form above the preview without horizontal scrolling", async ({ page }) => {
     await signUp(page);
+    await chooseDocument(page, "mutual-nda");
     await page.getByRole("tab", { name: "Fields" }).click();
     const form = page.getByLabel(/^Purpose/);
     await expect(form).toBeVisible();

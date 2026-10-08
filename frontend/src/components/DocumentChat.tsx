@@ -11,7 +11,7 @@ type Props = {
   onRetry: () => void;
 };
 
-export function NdaChat({ messages, pending, error, onSend, onRetry }: Props) {
+export function DocumentChat({ messages, pending, error, onSend, onRetry }: Props) {
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -86,7 +86,7 @@ export function NdaChat({ messages, pending, error, onSend, onRetry }: Props) {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
           aria-label="Message"
-          placeholder="Type your answer…"
+          placeholder="Type your message…"
           className="min-w-0 flex-1 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
         />
         <button

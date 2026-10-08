@@ -1,10 +1,16 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { App } from "@/components/App";
-import { parseStandardTerms } from "@/lib/nda";
+import type { DocumentSpec, LoadedDocument } from "@/lib/documents";
+import { parseStandardTerms } from "@/lib/terms";
 
-// Runs at build time (static export): the standard terms are baked into the page.
+const TEMPLATES = path.join(process.cwd(), "..", "templates");
+
+// Runs at build time (static export): the documents and their standard terms are baked into the page.
 export default async function Home() {
-  const markdown = await readFile(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8");
-  return <App terms={parseStandardTerms(markdown)} />;
+  const { documents } = JSON.parse(await readFile(path.join(TEMPLATES, "documents.json"), "utf8")) as { documents: DocumentSpec[] };
+  const loaded: LoadedDocument[] = await Promise.all(
+    documents.map(async (spec) => ({ spec, terms: parseStandardTerms(await readFile(path.join(TEMPLATES, spec.filename), "utf8")) })),
+  );
+  return <App documents={loaded} />;
 }

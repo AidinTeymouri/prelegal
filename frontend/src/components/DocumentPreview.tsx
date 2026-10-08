@@ -1,4 +1,6 @@
-import type { CoverPage, Inline, TermsBlock } from "@/lib/nda";
+import type { CoverPage } from "@/lib/cover";
+import type { Inline } from "@/lib/inline";
+import { clauseLabel, type TermsBlock } from "@/lib/terms";
 
 function Inlines({ content }: { content: Inline[] }) {
   return content.map((inline, i) => {
@@ -7,7 +9,7 @@ function Inlines({ content }: { content: Inline[] }) {
         return inline.bold ? <strong key={i}>{inline.text}</strong> : <span key={i}>{inline.text}</span>;
       case "term":
         return (
-          <span key={i} className="font-medium underline decoration-zinc-400 underline-offset-2">
+          <span key={i} className={`underline decoration-zinc-400 underline-offset-2 ${inline.bold ? "font-bold" : "font-medium"}`}>
             {inline.text}
           </span>
         );
@@ -31,7 +33,7 @@ function Inlines({ content }: { content: Inline[] }) {
   });
 }
 
-export function NdaPreview({ cover, terms }: { cover: CoverPage; terms: TermsBlock[] }) {
+export function DocumentPreview({ cover, terms }: { cover: CoverPage; terms: TermsBlock[] }) {
   return (
     <article className="space-y-4 font-serif text-[13px] leading-relaxed text-zinc-900">
       <h1 className="text-center text-xl font-bold">{cover.title}</h1>
@@ -60,8 +62,11 @@ export function NdaPreview({ cover, terms }: { cover: CoverPage; terms: TermsBlo
         <thead>
           <tr>
             <td className="w-1/4 border border-zinc-300 p-2" />
-            <th scope="col" className="border border-zinc-300 p-2 text-center">PARTY 1</th>
-            <th scope="col" className="border border-zinc-300 p-2 text-center">PARTY 2</th>
+            {cover.partyLabels.map((label) => (
+              <th key={label} scope="col" className="border border-zinc-300 p-2 text-center">
+                {label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -97,8 +102,8 @@ export function NdaPreview({ cover, terms }: { cover: CoverPage; terms: TermsBlo
             );
           case "clause":
             return (
-              <p key={i} className="flex gap-2">
-                <span>{block.number}.</span>
+              <p key={i} className="flex gap-2" style={{ marginLeft: `${block.depth * 1.5}rem` }}>
+                <span className="shrink-0">{clauseLabel(block.number)}</span>
                 <span>
                   <Inlines content={block.content} />
                 </span>

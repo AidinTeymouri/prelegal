@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, getCurrentUser, sendChat, signIn, signOut, signUp } from "@/lib/api";
-import { defaultFormData } from "@/lib/nda";
+import { data } from "@/testing/documents";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -79,16 +79,30 @@ describe("api", () => {
 });
 
 describe("sendChat", () => {
-  it("posts the conversation, the fields and today's date", async () => {
-    const fields = defaultFormData();
-    const fetch = mockFetch(json(200, { reply: "Thanks!", fields }));
+  it("posts the conversation, the draft and today's date", async () => {
+    const fields = data("mutual-nda");
+    const fetch = mockFetch(json(200, { reply: "Thanks!", document: "mutual-nda", fields }));
     const messages = [{ role: "user" as const, content: "Acme and Globex" }];
 
-    await expect(sendChat(messages, fields, "2026-10-07")).resolves.toEqual({ reply: "Thanks!", fields });
+    await expect(sendChat(messages, { document: "mutual-nda", fields }, "2026-10-07")).resolves.toEqual({
+      reply: "Thanks!",
+      document: "mutual-nda",
+      fields,
+    });
     expect(fetch).toHaveBeenCalledWith("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, fields, today: "2026-10-07" }),
+      body: JSON.stringify({ messages, document: "mutual-nda", fields, today: "2026-10-07" }),
     });
+  });
+
+  it("posts no fields before a document is chosen", async () => {
+    const fetch = mockFetch(json(200, { reply: "What do you need?", document: null, fields: null }));
+    const messages = [{ role: "user" as const, content: "Hi" }];
+    await sendChat(messages, { document: null, fields: null }, "2026-10-07");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/chat",
+      expect.objectContaining({ body: JSON.stringify({ messages, document: null, fields: null, today: "2026-10-07" }) }),
+    );
   });
 });

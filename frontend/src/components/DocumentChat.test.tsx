@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { NdaChat } from "@/components/NdaChat";
+import { DocumentChat } from "@/components/DocumentChat";
 import type { ChatMessage } from "@/lib/api";
 
 const messages: ChatMessage[] = [
@@ -9,16 +9,16 @@ const messages: ChatMessage[] = [
   { role: "user", content: "Acme and Globex" },
 ];
 
-function renderChat(props: Partial<Parameters<typeof NdaChat>[0]> = {}) {
+function renderChat(props: Partial<Parameters<typeof DocumentChat>[0]> = {}) {
   const onSend = vi.fn();
   const onRetry = vi.fn();
-  const view = render(<NdaChat messages={messages} pending={false} error={null} onSend={onSend} onRetry={onRetry} {...props} />);
+  const view = render(<DocumentChat messages={messages} pending={false} error={null} onSend={onSend} onRetry={onRetry} {...props} />);
   return { onSend, onRetry, ...view };
 }
 
 const input = () => screen.getByRole("textbox", { name: "Message" });
 
-describe("NdaChat", () => {
+describe("DocumentChat", () => {
   it("shows the conversation, labelled by speaker for screen readers", () => {
     renderChat();
     const log = screen.getByRole("log", { name: "Conversation" });
@@ -78,7 +78,7 @@ describe("NdaChat", () => {
   it("focuses the message box again when the reply arrives", () => {
     const { rerender, onSend, onRetry } = renderChat({ pending: true });
     input().blur();
-    rerender(<NdaChat messages={messages} pending={false} error={null} onSend={onSend} onRetry={onRetry} />);
+    rerender(<DocumentChat messages={messages} pending={false} error={null} onSend={onSend} onRetry={onRetry} />);
     expect(input()).toHaveFocus();
   });
 
@@ -96,7 +96,7 @@ describe("NdaChat", () => {
     const log = screen.getByRole("log");
     Object.defineProperty(log, "scrollHeight", { value: 900, configurable: true });
 
-    rerender(<NdaChat messages={[...messages, { role: "assistant", content: "Thanks!" }]} pending={false} error={null} onSend={onSend} onRetry={onRetry} />);
+    rerender(<DocumentChat messages={[...messages, { role: "assistant", content: "Thanks!" }]} pending={false} error={null} onSend={onSend} onRetry={onRetry} />);
 
     expect(log.scrollTop).toBe(900);
   });

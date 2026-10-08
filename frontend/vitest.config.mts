@@ -11,7 +11,7 @@ export default defineConfig({
     // West of UTC, so parsing a date as UTC instead of local shifts it back a day
     // and the tests catch it. e2e/nda.spec.ts also covers a zone east of UTC.
     env: { TZ: "America/Los_Angeles" },
-    // Long enough for the real PDF render in NdaPdf.test.tsx.
+    // Long enough for the real PDF render in DocumentPdf.test.tsx.
     testTimeout: 20_000,
   },
 });

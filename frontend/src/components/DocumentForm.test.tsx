@@ -2,16 +2,24 @@ import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { NdaForm } from "@/components/NdaForm";
-import { defaultFormData, type NdaFormData } from "@/lib/nda";
+import { DocumentForm } from "@/components/DocumentForm";
+import type { DocumentData, Party } from "@/lib/documents";
+import { data as documentData, spec } from "@/testing/documents";
 
-// Holds the form state like NdaBuilder does, and records every change.
-function setup(initial: Partial<NdaFormData> = {}) {
-  const onChange = vi.fn<(data: NdaFormData) => void>();
+const NDA = spec("mutual-nda");
+const initialData = (values: Record<string, string | number> = {}, parties: Partial<Party>[] = []) =>
+  documentData("mutual-nda", { effectiveDate: "2026-03-15", ...values }, parties);
+
+// Holds the form state like DocumentBuilder does, and records every change.
+function setup(values: Record<string, string | number> = {}, parties: Partial<Party>[] = [], document = NDA) {
+  const onChange = vi.fn<(data: DocumentData) => void>();
   function Harness() {
-    const [data, setData] = useState<NdaFormData>({ ...defaultFormData(), effectiveDate: "2026-03-15", ...initial });
+    const [data, setData] = useState<DocumentData>(
+      document === NDA ? initialData(values, parties) : documentData(document.id, values, parties),
+    );
     return (
-      <NdaForm
+      <DocumentForm
+        spec={document}
         data={data}
         onChange={(next) => {
           onChange(next);
@@ -33,25 +41,25 @@ const yearsInputs = () => [
   screen.getByRole("spinbutton", { name: "Term of confidentiality in years" }),
 ];
 
-describe("NdaForm", () => {
+describe("DocumentForm", () => {
   it("shows the current values", () => {
-    setup({ governingLaw: "Delaware", party2: { name: "", title: "", company: "Globex", noticeAddress: "" } });
-    expect(screen.getByLabelText(/^Purpose/)).toHaveValue(defaultFormData().purpose);
-    expect(screen.getByLabelText(/^Effective date/)).toHaveValue("2026-03-15");
-    expect(screen.getByLabelText(/^Governing law/)).toHaveValue("Delaware");
+    setup({ governingLaw: "Delaware" }, [{}, { company: "Globex" }]);
+    expect(screen.getByLabelText(/^Purpose/)).toHaveValue(initialData().values.purpose);
+    expect(screen.getByLabelText(/^Effective Date/)).toHaveValue("2026-03-15");
+    expect(screen.getByLabelText(/^Governing Law/)).toHaveValue("Delaware");
     expect(within(party(2)).getByLabelText(/^Company/)).toHaveValue("Globex");
     expect(screen.getByRole("radio", { name: /^Expires/ })).toBeChecked();
-    expect(screen.getByRole("radio", { name: /^1 year\(s\) from the effective date$/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /^For 1 year\(s\) from the effective date$/ })).toBeChecked();
     expect(yearsInputs().map((i) => (i as HTMLInputElement).value)).toEqual(["1", "1"]);
   });
 
   it("groups the fields into agreement terms and one section per party", () => {
     setup();
     expect(agreement()).toBeInTheDocument();
-    const mndaTerm = within(agreement()).getByRole("group", { name: /^MNDA term/ });
+    const mndaTerm = within(agreement()).getByRole("group", { name: "MNDA Term" });
     expect(within(mndaTerm).getAllByRole("radio")).toHaveLength(2);
     expect(within(mndaTerm).getByRole("spinbutton")).toBe(yearsInputs()[0]);
-    const confidentiality = within(agreement()).getByRole("group", { name: /^Term of confidentiality/ });
+    const confidentiality = within(agreement()).getByRole("group", { name: "Term of Confidentiality" });
     expect(within(confidentiality).getAllByRole("radio")).toHaveLength(2);
     expect(within(confidentiality).getByRole("spinbutton")).toBe(yearsInputs()[1]);
     for (const n of [1, 2] as const) {
@@ -64,34 +72,34 @@ describe("NdaForm", () => {
 
   it.each([
     [/^Purpose/, "purpose"],
-    [/^Governing law/, "governingLaw"],
-    [/^Jurisdiction/, "jurisdiction"],
-    [/^MNDA modifications/, "modifications"],
+    [/^Governing Law/, "governingLaw"],
+    [/^Jurisdiction/, "chosenCourts"],
+    [/^MNDA Modifications/, "modifications"],
   ] as const)("updates %s as the user types", async (label, key) => {
     const { user, latest } = setup();
     const field = screen.getByLabelText(label);
     await user.clear(field);
     await user.type(field, "Some value");
     expect(field).toHaveValue("Some value");
-    expect(latest()[key]).toBe("Some value");
+    expect(latest().values[key]).toBe("Some value");
   });
 
   it("only changes the edited field", async () => {
     const { user, latest } = setup();
-    await user.type(screen.getByLabelText(/^Governing law/), "Delaware");
-    expect(latest()).toEqual({ ...defaultFormData(), effectiveDate: "2026-03-15", governingLaw: "Delaware" });
+    await user.type(screen.getByLabelText(/^Governing Law/), "Delaware");
+    expect(latest()).toEqual(initialData({ governingLaw: "Delaware" }));
   });
 
   it("updates the effective date", () => {
     const { latest } = setup();
-    fireEvent.change(screen.getByLabelText(/^Effective date/), { target: { value: "2027-01-31" } });
-    expect(latest().effectiveDate).toBe("2027-01-31");
+    fireEvent.change(screen.getByLabelText(/^Effective Date/), { target: { value: "2027-01-31" } });
+    expect(latest().values.effectiveDate).toBe("2027-01-31");
   });
 
   it("passes an empty effective date up when the date is cleared", () => {
     const { latest } = setup();
-    fireEvent.change(screen.getByLabelText(/^Effective date/), { target: { value: "" } });
-    expect(latest().effectiveDate).toBe("");
+    fireEvent.change(screen.getByLabelText(/^Effective Date/), { target: { value: "" } });
+    expect(latest().values.effectiveDate).toBe("");
   });
 
   it.each([
@@ -103,15 +111,15 @@ describe("NdaForm", () => {
     const { user, latest } = setup();
     await user.type(within(party(1)).getByLabelText(label), "One");
     await user.type(within(party(2)).getByLabelText(label), "Two");
-    expect(latest().party1[field]).toBe("One");
-    expect(latest().party2[field]).toBe("Two");
+    expect(latest().parties[0][field]).toBe("One");
+    expect(latest().parties[1][field]).toBe("Two");
   });
 
   describe("MNDA term", () => {
     it("switches to continuing until terminated and disables the years input", async () => {
       const { user, latest } = setup();
       await user.click(screen.getByRole("radio", { name: "Continues until terminated" }));
-      expect(latest().mndaTermType).toBe("until-terminated");
+      expect(latest().values.mndaTermType).toBe("until-terminated");
       expect(yearsInputs()[0]).toBeDisabled();
       expect(yearsInputs()[1]).toBeEnabled();
     });
@@ -120,7 +128,7 @@ describe("NdaForm", () => {
       const { user, latest } = setup({ mndaTermType: "until-terminated" });
       expect(yearsInputs()[0]).toBeDisabled();
       await user.click(screen.getByRole("radio", { name: /^Expires/ }));
-      expect(latest().mndaTermType).toBe("expires");
+      expect(latest().values.mndaTermType).toBe("expires");
       expect(yearsInputs()[0]).toBeEnabled();
     });
 
@@ -128,8 +136,8 @@ describe("NdaForm", () => {
       const { user, latest } = setup();
       await user.clear(yearsInputs()[0]);
       await user.type(yearsInputs()[0], "3");
-      expect(latest().mndaTermYears).toBe(3);
-      expect(latest().confidentialityYears).toBe(1);
+      expect(latest().values.mndaTermYears).toBe(3);
+      expect(latest().values.confidentialityYears).toBe(1);
     });
   });
 
@@ -137,7 +145,7 @@ describe("NdaForm", () => {
     it("switches to perpetual and disables the years input", async () => {
       const { user, latest } = setup();
       await user.click(screen.getByRole("radio", { name: "In perpetuity" }));
-      expect(latest().confidentialityType).toBe("perpetual");
+      expect(latest().values.confidentialityType).toBe("perpetual");
       expect(yearsInputs()[1]).toBeDisabled();
       expect(yearsInputs()[0]).toBeEnabled();
     });
@@ -146,16 +154,16 @@ describe("NdaForm", () => {
       const { user, latest } = setup();
       await user.clear(yearsInputs()[1]);
       await user.type(yearsInputs()[1], "12");
-      expect(latest().confidentialityYears).toBe(12);
-      expect(latest().mndaTermYears).toBe(1);
+      expect(latest().values.confidentialityYears).toBe(12);
+      expect(latest().values.mndaTermYears).toBe(1);
     });
   });
 
   describe("years input", () => {
     it("shows a new value set from outside the form, e.g. by the AI chat", () => {
-      const data = { ...defaultFormData(), mndaTermYears: 1, confidentialityYears: 1 };
-      const { rerender } = render(<NdaForm data={data} onChange={() => {}} />);
-      rerender(<NdaForm data={{ ...data, mndaTermYears: 3, confidentialityYears: 7 }} onChange={() => {}} />);
+      const data = initialData();
+      const { rerender } = render(<DocumentForm spec={NDA} data={data} onChange={() => {}} />);
+      rerender(<DocumentForm spec={NDA} data={initialData({ mndaTermYears: 3, confidentialityYears: 7 })} onChange={() => {}} />);
       expect(screen.getByLabelText("MNDA term in years")).toHaveValue(3);
       expect(screen.getByLabelText("Term of confidentiality in years")).toHaveValue(7);
     });
@@ -167,7 +175,7 @@ describe("NdaForm", () => {
       expect(input).toHaveValue(null);
       await user.type(input, "5");
       expect(input).toHaveValue(5);
-      expect(onChange.mock.calls.map(([d]) => d.mndaTermYears)).toEqual([5]);
+      expect(onChange.mock.calls.map(([d]) => d.values.mndaTermYears)).toEqual([5]);
     });
 
     it.each(["0", "-1", "100", "2.5", "", "abc"])("ignores %j", (raw) => {
@@ -179,7 +187,7 @@ describe("NdaForm", () => {
     it.each(["1", "99"])("accepts the boundary value %s", (raw) => {
       const { latest } = setup({ mndaTermYears: 4 });
       fireEvent.change(yearsInputs()[0], { target: { value: raw } });
-      expect(latest().mndaTermYears).toBe(Number(raw));
+      expect(latest().values.mndaTermYears).toBe(Number(raw));
     });
 
     it("restores the last valid value on blur", async () => {
@@ -191,7 +199,7 @@ describe("NdaForm", () => {
       expect(input).toHaveValue(0);
       fireEvent.blur(input);
       expect(input).toHaveValue(7);
-      expect(latest().mndaTermYears).toBe(7);
+      expect(latest().values.mndaTermYears).toBe(7);
     });
 
     it("restores the value on blur after being left empty", async () => {
@@ -212,12 +220,38 @@ describe("NdaForm", () => {
     });
   });
 
+  describe("for another document", () => {
+    const pilot = spec("pilot-agreement");
+
+    it("has a group per spec section and one per party, named by role", () => {
+      setup({}, [], pilot);
+      expect(screen.getByRole("group", { name: "Order Form" })).toBeInTheDocument();
+      for (const role of ["Provider", "Customer"]) {
+        expect(within(screen.getByRole("group", { name: role })).getByLabelText(/^Company/)).toBeInTheDocument();
+      }
+    });
+
+    it("marks optional fields and uses text areas for long text", () => {
+      setup({}, [], pilot);
+      expect(screen.getByLabelText(/^Fees/)).toHaveAccessibleName("FeesOptional");
+      expect(screen.getByLabelText("Pilot Period")).toBeInTheDocument();
+      expect(screen.getByLabelText("Product").tagName).toBe("TEXTAREA");
+      expect(screen.getByLabelText("Effective Date")).toHaveAttribute("type", "date");
+    });
+
+    it("updates a value by its key", async () => {
+      const { user, latest } = setup({}, [], pilot);
+      await user.type(screen.getByLabelText("Pilot Period"), "90 days");
+      expect(latest().values.pilotPeriod).toBe("90 days");
+    });
+  });
+
   it("does not submit or reload the page when Enter is pressed", async () => {
     const { user } = setup();
-    const form = screen.getByLabelText(/^Governing law/).closest("form")!;
+    const form = screen.getByLabelText(/^Governing Law/).closest("form")!;
     // fireEvent returns false when a handler called preventDefault().
     expect(fireEvent.submit(form)).toBe(false);
-    await user.type(screen.getByLabelText(/^Governing law/), "Delaware{Enter}");
-    expect(screen.getByLabelText(/^Governing law/)).toHaveValue("Delaware");
+    await user.type(screen.getByLabelText(/^Governing Law/), "Delaware{Enter}");
+    expect(screen.getByLabelText(/^Governing Law/)).toHaveValue("Delaware");
   });
 });
