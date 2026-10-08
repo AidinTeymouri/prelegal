@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation supports every document in the catalog (the NDA cover page is part of the Mutual NDA, so there are 11 documents): an AI chat works out which document the user needs (offering the closest one for anything unsupported) and fills it in, or the user picks one and uses the Fields tab, with live preview and PDF download, behind email/password sign in. The documents and their cover page fields are defined in `templates/documents.json`.
+The current implementation supports every document in the catalog (the NDA cover page is part of the Mutual NDA, so there are 11 documents): an AI chat works out which document the user needs (offering the closest one for anything unsupported) and fills it in, or the user picks one and uses the Fields tab, with live preview and PDF download, behind email/password sign in (a split-screen sign-in/sign-up page). Each user's documents, including the chat, are saved automatically and listed on a "My documents" dashboard, the landing page after sign-in, so they can be reopened. Every screen, the preview and the PDF carry a disclaimer that documents are drafts subject to legal review. The documents and their cover page fields are defined in `templates/documents.json`.
 
 ## Development process
 
@@ -32,7 +32,7 @@ The .env file also has an optional SESSION_SECRET (currently blank; the backend 
 The entire project is packaged into a single Docker container (multi-stage `Dockerfile` in the root).  
 The backend is in backend/ and is a uv project, using FastAPI.  
 The frontend is in frontend/ (Next.js, built as a static export and served by FastAPI).  
-The database is SQLite, recreated from scratch each time the app starts, with a users table for sign up and sign in.  
+The database is SQLite, recreated from scratch each time the app starts, with a users table for sign up and sign in and a drafts table for users' saved documents.  
 Scripts in scripts/ (the Mac and Linux ones wrap `scripts/start.sh` / `scripts/stop.sh`):
 
 ```bash
@@ -91,6 +91,15 @@ App and API available at http://localhost:8000
 - Standard terms parser handles nested numbered clauses (1, 1.1, (a)) and every `*_link` span
 - Chat starts with no document: the model picks one (`document` in its Structured Output) once the user confirms; on a switch the server carries shared fields over and asks the model again with the new document's schema. A document picker above the tabs also switches by hand
 
+### Completed (PREL-7)
+
+- Split-screen sign-in/sign-up (brand panel; show-password toggle; confirm password on sign-up)
+- Autosaved documents: `drafts` table + `/api/documents` (list, get, save = create-or-replace by a browser-generated UUID, delete), each user only sees their own (404 otherwise). The server validates fields against the spec and works out the title and Draft/Ready status. The editor saves 800 ms after changes stop, one save at a time, and on close; nothing is saved until a document is chosen or a message sent
+- "My documents" dashboard (landing page) and editor, switched by the URL hash (`#/documents`, `#/documents/<id>`) since the static export has one page; reopening restores the document, fields and conversation
+- Drafts disclaimer (`src/lib/disclaimer.ts`) on sign-up, in the editor and preview, in an app footer on every screen, and on every PDF page
+- Polish: logo, header with My documents, shared button/input styles (`src/lib/ui.ts`), brand colours instead of indigo
+- `get_db` is used with `scope="function"` so writes are committed before the response is sent (the client's next request could otherwise miss them)
+
 ### Current API Endpoints
 
 - `GET /api/health` - Health check
@@ -98,13 +107,17 @@ App and API available at http://localhost:8000
 - `POST /api/auth/signin` - Sign in and receive JWT cookie
 - `POST /api/auth/signout` - Clear auth cookie
 - `GET /api/auth/me` - Get current user info (401 if not signed in)
+- `GET /api/documents` - The user's saved documents, newest first: `[{id, document, title, ready, updatedAt}]`
+- `GET /api/documents/{id}` - One saved document with `fields` and `messages` (404 if missing or someone else's)
+- `PUT /api/documents/{id}` - Create or replace a saved document (`{document, fields, messages}`; `id` is a UUID from the browser)
+- `DELETE /api/documents/{id}` - Delete a saved document
 - `POST /api/chat` - AI chat turn (auth required): `{messages, document, fields, today}` → `{reply, document, fields}`; `document` is a `templates/documents.json` id or null, `fields` is `{values, parties}`
 
 ### Implementation notes
 
-- Backend: `app/main.py` (app factory, recreates the DB on startup, serves `frontend/out`), `app/auth.py` (endpoints and the `current_user` dependency for protected routes), `app/documents.py` (loads `templates/documents.json`; validation, merge, carry-over, per-document update schemas), `app/chat.py` (`POST /api/chat`: prompt, response schema, LLM call), `app/db.py` (schema, `get_db`), `app/config.py` (loads the root `.env` for local runs; env vars: `DATABASE_PATH`, `STATIC_DIR`, `SESSION_SECRET`, `COOKIE_SECURE`; `chat.py` reads `OPENROUTER_API_KEY` and returns 503 without it). API errors are `{"detail": "<message>"}`.
+- Backend: `app/main.py` (app factory, recreates the DB on startup, serves `frontend/out`), `app/auth.py` (endpoints, the `current_user` dependency for protected routes, and `Db`), `app/drafts.py` (saved documents), `app/documents.py` (loads `templates/documents.json`; validation, merge, carry-over, per-document update schemas), `app/chat.py` (`POST /api/chat`: prompt, response schema, LLM call), `app/db.py` (schema, `get_db`), `app/config.py` (loads the root `.env` for local runs; env vars: `DATABASE_PATH`, `STATIC_DIR`, `SESSION_SECRET`, `COOKIE_SECURE`; `chat.py` reads `OPENROUTER_API_KEY` and returns 503 without it). API errors are `{"detail": "<message>"}`.
 - SQLite connections use `check_same_thread=False`: FastAPI runs a sync dependency and its endpoint on different threads.
-- Frontend: `src/components/App.tsx` gates the app on `/api/auth/me` and shows `AuthForm.tsx` or the document creator (`DocumentBuilder.tsx`: document picker and Chat/Fields tabs beside the preview; `DocumentChat.tsx` with `src/lib/useDocumentChat.ts`, which applies only the fields the AI changed so Fields-tab edits made mid-reply are kept); `src/lib/api.ts` is the API client. `src/lib/documents.ts` (spec types, defaults, required fields, carry-over), `terms.ts`/`inline.ts` (standard terms parser), `cover.ts` (cover pages). `documents.json` and the templates are read at build time from the repo-root `templates/`; the Docker backend stage copies `templates/documents.json` too. Brand colours are Tailwind tokens (`bg-brand-purple`, `text-brand-navy`, ...) in `globals.css`.
+- Frontend: `src/components/App.tsx` gates the app on `/api/auth/me`, shows `AuthForm.tsx`, or the header, footer and the page for the URL hash (`src/lib/route.ts`): `Dashboard.tsx` (My documents) or `EditorPage.tsx`, which loads a saved document into the document creator (`DocumentBuilder.tsx`, autosaved by `src/lib/useAutosave.ts`: document picker and Chat/Fields tabs beside the preview; `DocumentChat.tsx` with `src/lib/useDocumentChat.ts`, which applies only the fields the AI changed so Fields-tab edits made mid-reply are kept); `src/lib/api.ts` is the API client. `src/lib/documents.ts` (spec types, defaults, required fields, carry-over), `terms.ts`/`inline.ts` (standard terms parser), `cover.ts` (cover pages). `documents.json` and the templates are read at build time from the repo-root `templates/`; the Docker backend stage copies `templates/documents.json` too. Brand colours are Tailwind tokens (`bg-brand-purple`, `text-brand-navy`, ...) in `globals.css`.
 - Next.js 16 is newer than training data: read `frontend/node_modules/next/dist/docs/` before changing Next.js code.
 - Local dev: `cd backend && uv run uvicorn app.main:app --reload`, plus `cd frontend && npm run dev` (port 3000, forwards `/api` to 8000).
 - Tests: `cd backend && uv run pytest` (`-m live` for the real model); in frontend/, `npm test`, `npm run lint`, `npm run typecheck`, `npm run test:e2e` (builds the export, serves it with the backend on port 3100, and each test signs up its own user). Manual checklist: `frontend/MANUAL_TESTING.md`.
