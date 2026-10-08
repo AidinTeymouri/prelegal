@@ -1,4 +1,5 @@
 import type { CoverPage } from "@/lib/cover";
+import { DISCLAIMER } from "@/lib/disclaimer";
 import type { Inline } from "@/lib/inline";
 import { clauseLabel, type TermsBlock } from "@/lib/terms";
 
@@ -19,13 +20,13 @@ function Inlines({ content }: { content: Inline[] }) {
             {inline.text}
           </span>
         ) : (
-          <span key={i} className="rounded bg-indigo-50 px-1 font-medium text-indigo-900">
+          <span key={i} className="rounded bg-brand-blue/10 px-1 font-medium text-brand-navy">
             {inline.text}
           </span>
         );
       case "link":
         return (
-          <a key={i} href={inline.href} target="_blank" rel="noreferrer" className="text-indigo-700 underline">
+          <a key={i} href={inline.href} target="_blank" rel="noreferrer" className="text-brand-blue-dark underline">
             {inline.text}
           </a>
         );
@@ -36,6 +37,9 @@ function Inlines({ content }: { content: Inline[] }) {
 export function DocumentPreview({ cover, terms }: { cover: CoverPage; terms: TermsBlock[] }) {
   return (
     <article className="space-y-4 font-serif text-[13px] leading-relaxed text-zinc-900">
+      <p role="note" className="rounded-md border border-brand-yellow/60 bg-brand-yellow/10 px-3 py-2 font-sans text-xs text-zinc-700">
+        <strong className="font-semibold">Draft.</strong> {DISCLAIMER}
+      </p>
       <h1 className="text-center text-xl font-bold">{cover.title}</h1>
       <h2 className="font-bold">{cover.introHeading}</h2>
       <p>

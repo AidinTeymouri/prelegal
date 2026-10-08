@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { PASSWORD, isExpectedAuthError, signUp, uniqueEmail } from "./helpers";
 
 const signInHeading = (page: Page) => page.getByRole("heading", { name: "Sign in to Prelegal" });
+const myDocuments = (page: Page) => page.getByRole("heading", { name: "My documents" });
 // Scoped to the page content: Next.js adds an empty route announcer with role="alert".
 const formError = (page: Page) => page.getByRole("main").getByRole("alert");
 
@@ -21,7 +22,7 @@ test.describe("accounts", () => {
 
   test("asks visitors to sign in before they can use the document creator", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle("Legal Agreement Creator · Prelegal");
+    await expect(page).toHaveTitle("Prelegal · Draft legal agreements with AI");
     await expect(signInHeading(page)).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
   });
@@ -29,13 +30,13 @@ test.describe("accounts", () => {
   test("signs up, stays signed in across reloads, signs out and signs back in", async ({ page, context }) => {
     const email = await signUp(page);
     await expect(page.getByText(email)).toBeVisible();
-    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+    await expect(myDocuments(page)).toBeVisible();
 
     const [cookie] = await context.cookies();
     expect(cookie).toMatchObject({ name: "prelegal_session", httpOnly: true, sameSite: "Lax" });
 
     await page.reload();
-    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+    await expect(myDocuments(page)).toBeVisible();
 
     await page.getByRole("button", { name: "Sign out" }).click();
     await expect(signInHeading(page)).toBeVisible();
@@ -45,7 +46,7 @@ test.describe("accounts", () => {
     await page.getByLabel("Email").fill(email.toUpperCase());
     await page.getByLabel(/^Password/).fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+    await expect(myDocuments(page)).toBeVisible();
   });
 
   test("rejects a wrong password", async ({ page }) => {
@@ -58,7 +59,7 @@ test.describe("accounts", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(formError(page)).toHaveText("Incorrect email or password.");
-    await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
+    await expect(myDocuments(page)).toHaveCount(0);
   });
 
   test("won't create a second account for the same email", async ({ page }) => {
@@ -69,6 +70,7 @@ test.describe("accounts", () => {
     await page.getByRole("button", { name: "Create an account" }).click();
     await page.getByLabel("Email").fill(email);
     await page.getByLabel(/^Password/).fill(PASSWORD);
+    await page.getByLabel("Confirm password").fill(PASSWORD);
     await page.getByRole("button", { name: "Create account" }).click();
 
     await expect(formError(page)).toHaveText("An account with this email already exists.");
@@ -80,8 +82,24 @@ test.describe("accounts", () => {
     // Passes the browser's own email check but not the server's.
     await page.getByLabel("Email").fill(`${uniqueEmail().split("@")[0]}@localhost`);
     await page.getByLabel(/^Password/).fill(PASSWORD);
+    await page.getByLabel("Confirm password").fill(PASSWORD);
     await page.getByRole("button", { name: "Create account" }).click();
 
     await expect(formError(page)).toHaveText("Enter a valid email address.");
+  });
+
+  test("checks the passwords match and can show them", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Create an account" }).click();
+    await expect(page.getByText(/By creating an account you acknowledge: Documents created with Prelegal are drafts/)).toBeVisible();
+    await page.getByLabel("Email").fill(uniqueEmail());
+    await page.getByLabel(/^Password/).fill(PASSWORD);
+    await page.getByLabel("Confirm password").fill(`${PASSWORD}!`);
+    await page.getByRole("button", { name: "Show password" }).click();
+    await expect(page.getByLabel("Confirm password")).toHaveAttribute("type", "text");
+    await page.getByRole("button", { name: "Create account" }).click();
+
+    await expect(formError(page)).toHaveText("The passwords don’t match.");
+    await expect(myDocuments(page)).toHaveCount(0);
   });
 });

@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { DocumentPdf, registerPdfFonts } from "@/components/DocumentPdf";
 import { buildCoverPage } from "@/lib/cover";
 import type { DocumentData } from "@/lib/documents";
+import { DISCLAIMER } from "@/lib/disclaimer";
 import { data as documentData, DOCUMENTS } from "@/testing/documents";
 
 registerPdfFonts(path.join(process.cwd(), "public", "fonts"));
@@ -102,6 +103,12 @@ describe("DocumentPdf", () => {
       "PARTY 1 PARTY 2 Signature Print Name Ada Lovelace Alan Turing Title CEO CTO Company Acme Inc. Globex " +
         "Notice Address Use either email or postal address legal@acme.test 1 Main St, Springfield Date",
     );
+  });
+
+  it("puts the drafts disclaimer at the foot of every page", async () => {
+    const { pages } = await renderPdf(completeFormData());
+    expect(pages.length).toBeGreaterThanOrEqual(3);
+    for (const page of pages) expect(page).toContain(`Draft. ${DISCLAIMER}`);
   });
 
   it("includes all 11 clauses of the standard terms and the attribution", async () => {

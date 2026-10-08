@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, getCurrentUser, sendChat, signIn, signOut, signUp } from "@/lib/api";
+import { ApiError, deleteDraft, getCurrentUser, getDraft, listDrafts, saveDraft, sendChat, signIn, signOut, signUp } from "@/lib/api";
 import { data } from "@/testing/documents";
 
 const json = (status: number, body: unknown) =>
@@ -104,5 +104,37 @@ describe("sendChat", () => {
       "/api/chat",
       expect.objectContaining({ body: JSON.stringify({ messages, document: null, fields: null, today: "2026-10-07" }) }),
     );
+  });
+});
+
+describe("saved documents", () => {
+  const ID = "2f1c8a2e-1b7d-4c3e-9a51-6d0e2b4f7a90";
+
+  it("lists, gets, saves and deletes them", async () => {
+    let fetch = mockFetch(json(200, []));
+    await listDrafts();
+    expect(fetch).toHaveBeenCalledWith("/api/documents", { method: "GET", headers: undefined, body: undefined });
+
+    fetch = mockFetch(json(200, {}));
+    await getDraft(ID);
+    expect(fetch).toHaveBeenCalledWith(`/api/documents/${ID}`, { method: "GET", headers: undefined, body: undefined });
+
+    fetch = mockFetch(json(200, {}));
+    const content = { document: "mutual-nda", fields: data("mutual-nda"), messages: [{ role: "user" as const, content: "Hi" }] };
+    await saveDraft(ID, content);
+    expect(fetch).toHaveBeenCalledWith(`/api/documents/${ID}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(content),
+    });
+
+    fetch = mockFetch(new Response(null, { status: 204 }));
+    await expect(deleteDraft(ID)).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith(`/api/documents/${ID}`, { method: "DELETE", headers: undefined, body: undefined });
+  });
+
+  it("reports a missing document as a 404", async () => {
+    mockFetch(json(404, { detail: "Document not found." }));
+    await expect(getDraft(ID)).rejects.toMatchObject({ status: 404, message: "Document not found." });
   });
 });

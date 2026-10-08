@@ -4,10 +4,12 @@ import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { DocumentChat } from "@/components/DocumentChat";
 import { DocumentForm } from "@/components/DocumentForm";
 import { DocumentPreview } from "@/components/DocumentPreview";
-import type { Draft } from "@/lib/api";
+import type { Draft, DraftContent } from "@/lib/api";
 import { buildCoverPage } from "@/lib/cover";
 import { carryOver, missingRequiredFields, pdfFilename, type LoadedDocument } from "@/lib/documents";
 import { unsupportedPdfCharacters } from "@/lib/pdf-fonts";
+import { buttonClass, inputClass } from "@/lib/ui";
+import { useAutosave, type SaveStatus } from "@/lib/useAutosave";
 import { useDocumentChat } from "@/lib/useDocumentChat";
 
 const TABS = [
@@ -16,13 +18,42 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
-export function DocumentBuilder({ documents }: { documents: LoadedDocument[] }) {
-  const [draft, setDraft] = useState<Draft>({ document: null, fields: null });
+// Saving happens after every pause in typing, so only a failure is announced to screen readers.
+function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () => void }) {
+  return (
+    <span className="shrink-0 text-xs text-zinc-500">
+      {status === "saving" && "Saving…"}
+      {status === "saved" && "Saved"}
+      {status === "error" && (
+        <span role="alert" className="text-red-600">
+          Couldn’t save.{" "}
+          <button type="button" onClick={onRetry} className={buttonClass("link")}>
+            Retry
+          </button>
+        </span>
+      )}
+    </span>
+  );
+}
+
+type Props = {
+  documents: LoadedDocument[];
+  // The document's id, for saving it.
+  id: string;
+  // A saved document to carry on with; a new document starts empty.
+  saved?: DraftContent;
+};
+
+export function DocumentBuilder({ documents, id, saved }: Props) {
+  const [draft, setDraft] = useState<Draft>(() => (saved ? { document: saved.document, fields: saved.fields } : { document: null, fields: null }));
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("chat");
   const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
-  const chat = useDocumentChat(draft, setDraft);
+  const chat = useDocumentChat(draft, setDraft, saved?.messages);
+  const content = useMemo(() => ({ ...draft, messages: chat.messages }), [draft, chat.messages]);
+  // A new document is saved once there is something to keep: a chosen document or a message.
+  const save = useAutosave(id, content, !draft.document && !chat.messages.some((m) => m.role === "user"), saved);
 
   const current = documents.find((d) => d.spec.id === draft.document);
   const data = current && draft.fields;
@@ -75,10 +106,10 @@ export function DocumentBuilder({ documents }: { documents: LoadedDocument[] }) 
   }
 
   return (
-    <div className="grid flex-1 grid-cols-1 lg:grid-cols-[minmax(380px,460px)_1fr]">
-      <aside className="flex flex-col border-zinc-200 bg-white lg:h-[calc(100vh-57px)] lg:border-r">
-        <div className="shrink-0 border-b border-zinc-200 px-6 py-3">
-          <div className="flex items-center gap-3 text-sm">
+    <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[minmax(380px,460px)_1fr] lg:grid-rows-[minmax(0,1fr)]">
+      <aside className="flex flex-col border-zinc-200 bg-white lg:h-full lg:border-r">
+        <div className="flex shrink-0 items-center gap-3 border-b border-zinc-200 px-6 py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3 text-sm">
             <label htmlFor="document" className="font-medium text-zinc-800">
               Document
             </label>
@@ -86,7 +117,7 @@ export function DocumentBuilder({ documents }: { documents: LoadedDocument[] }) 
               id="document"
               value={draft.document ?? ""}
               onChange={(e) => choose(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+              className={`min-w-0 flex-1 ${inputClass}`}
             >
               <option value="" disabled>
                 Choose a document…
@@ -98,6 +129,7 @@ export function DocumentBuilder({ documents }: { documents: LoadedDocument[] }) 
               ))}
             </select>
           </div>
+          <SaveIndicator status={save.status} onRetry={save.retry} />
         </div>
 
         <div role="tablist" aria-label="How to fill in the document" className="flex shrink-0 gap-6 border-b border-zinc-200 px-6">
@@ -148,7 +180,7 @@ export function DocumentBuilder({ documents }: { documents: LoadedDocument[] }) 
             type="button"
             onClick={download}
             disabled={!current || missing.length > 0 || downloading}
-            className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-zinc-300"
+            className={`w-full ${buttonClass("primary")}`}
           >
             {downloading ? "Generating PDF…" : "Download PDF"}
           </button>
@@ -167,14 +199,14 @@ export function DocumentBuilder({ documents }: { documents: LoadedDocument[] }) 
         </div>
       </aside>
 
-      <section className="bg-zinc-100 px-4 py-8 lg:h-[calc(100vh-57px)] lg:overflow-y-auto">
+      <section className="bg-zinc-100 px-4 py-8 lg:h-full lg:overflow-y-auto">
         {current && cover ? (
           <div className="mx-auto max-w-[8.5in] bg-white px-10 py-12 shadow-md sm:px-16">
             <DocumentPreview cover={cover} terms={current.terms} />
           </div>
         ) : (
           <div className="mx-auto max-w-2xl">
-            <h2 className="text-lg font-semibold text-brand-navy">What would you like to draft?</h2>
+            <h1 className="text-lg font-semibold text-brand-navy">What would you like to draft?</h1>
             <p className="mt-1 text-sm text-zinc-600">
               Tell the assistant what you need, or pick one of the Common Paper standard agreements to start from.
             </p>

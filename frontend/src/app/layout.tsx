@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Legal Agreement Creator · Prelegal",
-  description: "Draft a Common Paper standard agreement by chatting with AI, and download it as a PDF.",
+  title: "Prelegal · Draft legal agreements with AI",
+  description: "Draft Common Paper standard agreements by chatting with AI, save your drafts, and download them as PDFs.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

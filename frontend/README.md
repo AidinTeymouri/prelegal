@@ -19,7 +19,12 @@ Open [http://localhost:3000](http://localhost:3000). In development, `/api` requ
 
 - `templates/documents.json` (repo root) – the documents and their cover page fields: labels, types, required or not, defaults, and the descriptions the AI sees. The backend reads the same file. Adding a field there adds it to the form, the cover page and the AI's schema.
 - `src/app/page.tsx` – reads `documents.json` and each document's standard terms (`templates/*.md`, CC BY 4.0) at build time.
-- `src/components/App.tsx` – the page shell: asks the backend who is signed in, then shows the sign-in form (`AuthForm.tsx`) or the document creator.
+- `src/components/App.tsx` – the page shell: asks the backend who is signed in, then shows the split-screen sign-in page (`AuthForm.tsx`) or the header, the page for the URL hash and a footer with the drafts disclaimer.
+- `src/lib/route.ts` – the hash routes (`#/documents`, `#/documents/<id>`); the static export has a single page.
+- `src/components/Dashboard.tsx` – My documents: the user's saved documents with their Draft/Ready status, New document and delete.
+- `src/components/EditorPage.tsx` – opens a saved document (fields and conversation) in the document creator, or a new one.
+- `src/lib/useAutosave.ts` – saves the document 800 ms after changes stop, one save at a time, and when the editor closes.
+- `src/lib/ui.ts`, `src/lib/disclaimer.ts`, `src/components/Logo.tsx` – shared button and input styles, the drafts disclaimer, the logo.
 - `src/lib/api.ts` – the backend API client.
 - `src/lib/documents.ts` – the document model: spec types, field data and defaults, required fields, carrying values over when switching documents, and the PDF filename.
 - `src/lib/terms.ts` and `src/lib/inline.ts` – parse the standard terms markdown (nested numbered clauses, `*_link` term spans, headings, bold and links) into blocks.
@@ -43,6 +48,7 @@ First-time E2E setup: `npx playwright install chromium`. The E2E tests also need
 - `src/testing/documents.ts` – loads the real documents and templates for tests.
 - `src/**/*.test.ts(x)` – the document model, every standard terms template, the API client, each component, and the generated PDF's text (read back with `pdf-parse`). Tests run in the `America/Los_Angeles` time zone so date bugs show up.
 - `e2e/auth.spec.ts` – signing up, in and out against the real backend.
+- `e2e/my-documents.spec.ts` – autosaving, reopening (including the conversation), Ready status, deleting, and keeping each user's documents private.
 - `e2e/chat.spec.ts` – the AI chat (choosing a document, unsupported requests, switching documents), with `/api/chat` faked in the browser (`backend/tests/test_chat_live.py` covers the real model).
 - `e2e/documents.spec.ts` – every document: fill in its required fields, download the PDF and read it back.
 - `e2e/nda.spec.ts` – the whole Mutual NDA flow on the Fields tab in a browser (each test signs up first): live preview, validation, downloading and reading the PDF, keyboard use, time zones and phone layout.

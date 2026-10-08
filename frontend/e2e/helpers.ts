@@ -11,9 +11,16 @@ export async function signUp(page: Page, email = uniqueEmail()) {
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel(/^Password/).fill(PASSWORD);
+  await page.getByLabel("Confirm password").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My documents" })).toBeVisible();
   return email;
+}
+
+// From My documents, starts a new document and waits for the editor.
+export async function startNewDocument(page: Page) {
+  await page.getByRole("button", { name: "New document" }).first().click();
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
 }
 
 // The browser logs every 4xx response as a console error, including the expected

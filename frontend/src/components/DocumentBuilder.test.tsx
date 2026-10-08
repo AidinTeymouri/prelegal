@@ -3,9 +3,10 @@ import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentBuilder } from "@/components/DocumentBuilder";
-import { ApiError, sendChat, type ChatReply, type Draft } from "@/lib/api";
+import { ApiError, saveDraft, sendChat, type ChatReply, type Draft } from "@/lib/api";
+import { DISCLAIMER } from "@/lib/disclaimer";
 import type { DocumentData } from "@/lib/documents";
-import { GREETING } from "@/lib/useDocumentChat";
+import { GREETING, LOST_REPLY } from "@/lib/useDocumentChat";
 import { data as documentData, DOCUMENTS } from "@/testing/documents";
 
 // The real PDF rendering is covered by DocumentPdf.test.tsx; here we only check
@@ -16,14 +17,20 @@ vi.mock("@react-pdf/renderer", () => ({ pdf: (element: ReactElement) => pdf(elem
 const registerPdfFonts = vi.fn();
 vi.mock("@/components/DocumentPdf", () => ({ DocumentPdf: () => null, registerPdfFonts: (dir: string) => registerPdfFonts(dir) }));
 
-vi.mock("@/lib/api", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/api")>()), sendChat: vi.fn() }));
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  sendChat: vi.fn(),
+  saveDraft: vi.fn(async () => ({})),
+}));
+
+const DRAFT_ID = "2f1c8a2e-1b7d-4c3e-9a51-6d0e2b4f7a90";
 
 const NDA = DOCUMENTS.find((d) => d.spec.id === "mutual-nda")!;
 const picker = () => screen.getByRole("combobox", { name: "Document" });
 
 // Most tests here use the form on the Mutual NDA; the chat is covered in its own describe block below.
 function renderFieldsTab(document = "mutual-nda") {
-  render(<DocumentBuilder documents={DOCUMENTS} />);
+  render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
   fireEvent.change(picker(), { target: { value: document } });
   fireEvent.click(screen.getByRole("tab", { name: "Fields" }));
 }
@@ -73,7 +80,7 @@ describe("DocumentBuilder", () => {
 
   it("starts without a document, offering each one to choose from", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
     expect(picker()).toHaveValue("");
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "What would you like to draft?" })).toBeInTheDocument();
@@ -89,7 +96,7 @@ describe("DocumentBuilder", () => {
   });
 
   it("lists every document in the picker", () => {
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
     const options = within(picker()).getAllByRole("option").map((o) => o.textContent);
     expect(options).toEqual(["Choose a document…", ...DOCUMENTS.map((d) => d.spec.name)]);
   });
@@ -332,7 +339,7 @@ describe("DocumentBuilder chat", () => {
   });
 
   it("starts on the Chat tab with a greeting", () => {
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
     expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true");
     expect(log()).toHaveTextContent(GREETING);
     expect(message()).toHaveFocus();
@@ -341,7 +348,7 @@ describe("DocumentBuilder chat", () => {
 
   it("fills in the document from the assistant's replies", async () => {
     const user = userEvent.setup();
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
     reply("Thanks! Which state's law should govern?", (f) => withCompanies(f, "Acme Inc.", "Globex"));
 
     await user.type(message(), "Acme Inc. and Globex{Enter}");
@@ -372,7 +379,7 @@ describe("DocumentBuilder chat", () => {
     const user = userEvent.setup();
     let resolve!: (value: ChatReply) => void;
     vi.mocked(sendChat).mockReturnValueOnce(new Promise((r) => (resolve = r)));
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
 
     await user.type(message(), "Hi{Enter}");
     expect(screen.getByText("Assistant is typing…")).toBeInTheDocument();
@@ -386,7 +393,7 @@ describe("DocumentBuilder chat", () => {
   it("shows errors and retries the same conversation", async () => {
     const user = userEvent.setup();
     vi.mocked(sendChat).mockRejectedValueOnce(new ApiError("The AI assistant is unavailable right now. Please try again.", 502));
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
 
     await user.type(message(), "Acme and Globex{Enter}");
     expect(await screen.findByRole("alert")).toHaveTextContent("The AI assistant is unavailable right now.");
@@ -401,7 +408,7 @@ describe("DocumentBuilder chat", () => {
 
   it("sends edits made on the Fields tab, and keeps the conversation when switching tabs", async () => {
     const user = userEvent.setup();
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
     reply("Thanks!", (f) => f);
     await user.type(message(), "Hello{Enter}");
     await within(log()).findByText("Thanks!");
@@ -421,7 +428,7 @@ describe("DocumentBuilder chat", () => {
     const user = userEvent.setup();
     let resolve!: (value: ChatReply) => void;
     vi.mocked(sendChat).mockReturnValueOnce(new Promise((r) => (resolve = r)));
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
     fireEvent.change(picker(), { target: { value: "mutual-nda" } });
 
     await user.type(message(), "Acme and Globex{Enter}");
@@ -437,7 +444,7 @@ describe("DocumentBuilder chat", () => {
 
   it("moves to the document the assistant chose, keeping what was filled in", async () => {
     const user = userEvent.setup();
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
     fireEvent.change(picker(), { target: { value: "mutual-nda" } });
     vi.mocked(sendChat).mockResolvedValueOnce({
       reply: "Let's do a Pilot Agreement instead.",
@@ -455,7 +462,7 @@ describe("DocumentBuilder chat", () => {
 
   it("stays without a document while the assistant explains what it can draft", async () => {
     const user = userEvent.setup();
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
     vi.mocked(sendChat).mockResolvedValueOnce({
       reply: "I can't draft an employment contract, but a Professional Services Agreement may help. Want that?",
       document: null,
@@ -471,7 +478,7 @@ describe("DocumentBuilder chat", () => {
 
   it("switches tabs with the arrow keys", async () => {
     const user = userEvent.setup();
-    render(<DocumentBuilder documents={DOCUMENTS} />);
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
 
     screen.getByRole("tab", { name: "Chat" }).focus();
     await user.keyboard("{ArrowRight}");
@@ -481,5 +488,82 @@ describe("DocumentBuilder chat", () => {
     await user.keyboard("{ArrowLeft}");
     expect(screen.getByRole("tab", { name: "Chat" })).toHaveFocus();
     expect(screen.getByRole("tabpanel", { name: "Chat" })).toBeInTheDocument();
+  });
+});
+
+describe("DocumentBuilder saving", () => {
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "Date"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.mocked(saveDraft).mockClear();
+    vi.mocked(sendChat).mockReset();
+  });
+
+  it("doesn't save a new document until there is something to keep", async () => {
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(saveDraft).not.toHaveBeenCalled();
+  });
+
+  it("saves the chosen document, its fields and the conversation as the user works", async () => {
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Document" }), { target: { value: "pilot-agreement" } });
+    await act(() => vi.advanceTimersByTimeAsync(800));
+
+    expect(saveDraft).toHaveBeenCalledWith(DRAFT_ID, {
+      document: "pilot-agreement",
+      fields: documentData("pilot-agreement"),
+      messages: [{ role: "assistant", content: GREETING }],
+    });
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
+  });
+
+  it("says when a save fails and retries", async () => {
+    vi.mocked(saveDraft).mockRejectedValueOnce(new ApiError("Can’t reach the server.", 0));
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Document" }), { target: { value: "pilot-agreement" } });
+    await act(() => vi.advanceTimersByTimeAsync(800));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn’t save.");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
+    expect(saveDraft).toHaveBeenCalledTimes(2);
+  });
+
+  it("reopens a saved document with its fields and conversation, without saving it again", async () => {
+    const saved = {
+      document: "pilot-agreement",
+      fields: documentData("pilot-agreement", { pilotPeriod: "90 days" }),
+      messages: [
+        { role: "assistant" as const, content: GREETING },
+        { role: "user" as const, content: "A 90 day pilot" },
+        { role: "assistant" as const, content: "Got it." },
+      ],
+    };
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} saved={saved} />);
+
+    expect(screen.getByRole("combobox", { name: "Document" })).toHaveValue("pilot-agreement");
+    expect(within(screen.getByRole("article")).getByText("90 days")).toBeInTheDocument();
+    expect(screen.getByRole("log")).toHaveTextContent("A 90 day pilot");
+    expect(screen.getByRole("log")).toHaveTextContent("Got it.");
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(saveDraft).not.toHaveBeenCalled();
+  });
+
+  it("offers Retry when a saved conversation lost its last reply", () => {
+    const saved = { document: null, fields: null, messages: [{ role: "assistant" as const, content: GREETING }, { role: "user" as const, content: "An NDA" }] };
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} saved={saved} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(LOST_REPLY);
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("shows the drafts disclaimer in the preview", () => {
+    render(<DocumentBuilder documents={DOCUMENTS} id={DRAFT_ID} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Document" }), { target: { value: "mutual-nda" } });
+    expect(within(screen.getByRole("article")).getByRole("note")).toHaveTextContent(`Draft. ${DISCLAIMER}`);
   });
 });

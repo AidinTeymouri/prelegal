@@ -31,22 +31,36 @@ Sections 1–8 use the Mutual NDA (choose it in the **Document** picker); sectio
 
 ## 0. Accounts
 
-- [ ] The page shows "Sign in to Prelegal"; the document creator is not shown.
-- [ ] **Create an account** with a new email and an 8+ character password: the document creator appears and the header shows your email and **Sign out**.
+- [ ] The page shows the sign-in screen: a navy panel with the logo, what Prelegal does and the 11 agreements (on wide screens; on a phone just the logo and the form), and "Sign in to Prelegal". The footer shows the drafts disclaimer.
+- [ ] **Create an account**: there is a **Confirm password** field, and the drafts disclaimer under the form. Different passwords: "The passwords don’t match." **Show password** shows both passwords as text.
+- [ ] Create an account with a new email and an 8+ character password: **My documents** appears (empty, with **New document**), and the header shows the logo, **My documents**, your email and **Sign out**.
 - [ ] Reload: you are still signed in.
-- [ ] **Sign out**, then sign in with the wrong password: "Incorrect email or password." Sign in with the right one: the document creator appears.
+- [ ] **Sign out**, then sign in with the wrong password: "Incorrect email or password." Sign in with the right one: **My documents** appears.
 - [ ] Try to create a second account with the same email: "An account with this email already exists."
-- [ ] Stop and start the container (`scripts/stop-mac.sh`, `scripts/start-mac.sh`) and reload: you are signed out and the account no longer exists.
+- [ ] Stop and start the container (`scripts/stop-mac.sh`, `scripts/start-mac.sh`) and reload: you are signed out and the account (and its documents) no longer exist.
 - [ ] Stop the container while signed in, then click **Sign out**: "Can’t reach the server…" is shown next to the button and you stay on the page.
+
+## 0a. My documents
+
+- [ ] **New document** opens the editor with the greeting; the address bar ends in `#/documents/<id>`. Going back without typing anything or choosing a document leaves My documents empty.
+- [ ] Choose a document and type a company: "Saving…" then "Saved" appears next to the Document picker. Click **My documents**: the document is listed as "<Document>: <company>" with a **Draft** badge and "Updated just now".
+- [ ] Open it: the document, every field and the whole conversation are back, and nothing is saved again until you change something. Reload the page: still the same document.
+- [ ] Fill in all required fields: on My documents the badge says **Ready**.
+- [ ] Start a second document: the list shows the most recently changed first.
+- [ ] **Delete** asks to confirm (Delete / Cancel), with focus on Cancel; Cancel keeps it and returns focus to Delete, Delete removes it, also after a reload.
+- [ ] Change a field and click **Sign out** straight away: after signing back in, the change is there. With the server stopped, Sign out says the latest changes couldn’t be saved; clicking it again signs out.
+- [ ] Sign in as another user in a private window: their list is empty, and pasting the first user's document address opens a blank document, not the first user's.
+- [ ] Stop the container while editing and change a field: "Couldn’t save. Retry" appears next to the Document picker and you can keep editing. (Starting the container again resets the database, so this only checks the error.)
+- [ ] Send a chat message and reload before the reply arrives: reopening shows "The assistant’s last reply didn’t arrive." with **Retry**.
 
 ## 0b. AI chat
 
-Needs `OPENROUTER_API_KEY` in `.env`. Sign in first.
+Needs `OPENROUTER_API_KEY` in `.env`. Sign in first and click **New document**.
 
 - [ ] The Chat tab is selected and shows the assistant's greeting; the message box has focus. The **Document** picker says "Choose a document…" and the preview area lists every document as a card.
 - [ ] Describe a need without naming a document, e.g. "We're letting a customer trial our analytics product for 90 days before they buy." The assistant suggests the Pilot Agreement with a reason. Confirm: the picker switches to Pilot Agreement, the preview shows its Order Form, and the assistant asks for what's still needed (and has already filled in the 90 days).
 - [ ] Ask for a document it can't draft ("I need an employment contract"): it says it can't, suggests the closest supported document and asks whether you want it; nothing is chosen until you agree.
-- [ ] Start over (reload) and ask for an NDA. Answer in free form, e.g. "Acme Inc. and Globex, we're exploring a joint product. Delaware law, disputes in New Castle County. Start next Monday, 2 years, confidentiality forever." The reply arrives within a few seconds ("Assistant is typing…" meanwhile), confirms what it filled in, and asks for anything still missing. The preview shows the values, the purpose describes the joint product, and "next Monday" is the right date.
+- [ ] Start another new document and ask for an NDA. Answer in free form, e.g. "Acme Inc. and Globex, we're exploring a joint product. Delaware law, disputes in New Castle County. Start next Monday, 2 years, confidentiality forever." The reply arrives within a few seconds ("Assistant is typing…" meanwhile), confirms what it filled in, and asks for anything still missing. The preview shows the values, the purpose describes the joint product, and "next Monday" is the right date.
 - [ ] Once nothing required is missing, the assistant says the document is ready to download and offers the optional details; **Download PDF** is enabled.
 - [ ] Give a signatory's name, title and email: they appear in the signature table.
 - [ ] Change something ("make it 3 years instead"): the preview updates.
@@ -58,7 +72,7 @@ Needs `OPENROUTER_API_KEY` in `.env`. Sign in first.
 
 ## 1. First load
 
-Sign in first, choose **Mutual Non-Disclosure Agreement** in the **Document** picker and open the **Fields** tab.
+Sign in first, click **New document**, choose **Mutual Non-Disclosure Agreement** in the **Document** picker and open the **Fields** tab.
 
 - [ ] The page loads with no errors in the browser console (a 401 for `/api/auth/me` before signing in is expected).
 - [ ] The form is on the left and the preview on the right (desktop), each scrolling on its own.
@@ -70,7 +84,7 @@ Sign in first, choose **Mutual Non-Disclosure Agreement** in the **Document** pi
 
 Fill in the test data one field at a time.
 
-- [ ] Each value appears in the preview immediately, highlighted in indigo, replacing its amber placeholder.
+- [ ] Each value appears in the preview immediately, highlighted in light blue, replacing its amber placeholder.
 - [ ] The "Still needed" list shrinks as each required field is filled, and the button becomes active once it is empty.
 - [ ] The two lines of the modifications appear on two lines in the preview.
 - [ ] Party 1's details are in the PARTY 1 column and Party 2's in the PARTY 2 column; Party 2's empty name and title cells are blank, not placeholders.
@@ -157,3 +171,10 @@ For each document in the **Document** picker (or a sample of them: one Order For
 - [ ] The standard terms are word-for-word the same as the template in `templates/`, with sections numbered 1, 2, 3…, clauses 1.1, 1.2… indented under them, and lettered items (a), (b)… indented further. Section and clause headings are bold; terms defined on the cover page (Provider, Customer, Pilot Period…) are underlined.
 - [ ] Fill in the required fields: **Download PDF** is enabled. The PDF is named after the template and the companies (e.g. `Pilot-Agreement_Acme-Inc_Globex.pdf`), and its numbering and indentation match the preview, with no clause cut off at a page break.
 - [ ] Switch from one document to another with the picker: the companies, signatories and shared fields (effective date, governing law, courts…) are kept; the other fields start fresh.
+
+## 10. Disclaimer and look
+
+- [ ] The drafts disclaimer ("…drafts… not legal advice and are subject to legal review…") appears: under the sign-up form, in the footer of every screen, in a yellow note at the top of the preview, and at the foot of every page of the downloaded PDF (it does not overlap the text).
+- [ ] Buttons are consistent: purple for main actions (Sign in, New document, Download PDF, Send), white with a border for secondary ones (Sign out, Delete, Cancel). There is no indigo left anywhere.
+- [ ] Tab through each screen: every button and link shows a visible focus ring.
+- [ ] On a wide screen the editor fills the window between the header and footer; the chat or fields and the preview scroll separately, and the Download button stays in view.
