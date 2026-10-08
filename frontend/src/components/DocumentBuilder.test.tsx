@@ -1,29 +1,30 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { NdaBuilder } from "@/components/NdaBuilder";
-import { ApiError, sendChat } from "@/lib/api";
-import { defaultFormData, parseStandardTerms, type NdaFormData } from "@/lib/nda";
-import { GREETING } from "@/lib/useNdaChat";
+import { DocumentBuilder } from "@/components/DocumentBuilder";
+import { ApiError, sendChat, type ChatReply, type Draft } from "@/lib/api";
+import type { DocumentData } from "@/lib/documents";
+import { GREETING } from "@/lib/useDocumentChat";
+import { data as documentData, DOCUMENTS } from "@/testing/documents";
 
-// The real PDF rendering is covered by NdaPdf.test.tsx; here we only check
-// what NdaBuilder passes to the renderer and how it handles the result.
+// The real PDF rendering is covered by DocumentPdf.test.tsx; here we only check
+// what DocumentBuilder passes to the renderer and how it handles the result.
 const toBlob = vi.fn<() => Promise<Blob>>();
 const pdf = vi.fn<(element: ReactElement) => { toBlob: typeof toBlob }>(() => ({ toBlob }));
 vi.mock("@react-pdf/renderer", () => ({ pdf: (element: ReactElement) => pdf(element) }));
 const registerPdfFonts = vi.fn();
-vi.mock("@/components/NdaPdf", () => ({ NdaPdf: () => null, registerPdfFonts: (dir: string) => registerPdfFonts(dir) }));
+vi.mock("@/components/DocumentPdf", () => ({ DocumentPdf: () => null, registerPdfFonts: (dir: string) => registerPdfFonts(dir) }));
 
 vi.mock("@/lib/api", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/api")>()), sendChat: vi.fn() }));
 
-const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8"));
+const NDA = DOCUMENTS.find((d) => d.spec.id === "mutual-nda")!;
+const picker = () => screen.getByRole("combobox", { name: "Document" });
 
-// Most tests here use the form; the chat is covered in its own describe block below.
-function renderFieldsTab() {
-  render(<NdaBuilder terms={terms} />);
+// Most tests here use the form on the Mutual NDA; the chat is covered in its own describe block below.
+function renderFieldsTab(document = "mutual-nda") {
+  render(<DocumentBuilder documents={DOCUMENTS} />);
+  fireEvent.change(picker(), { target: { value: document } });
   fireEvent.click(screen.getByRole("tab", { name: "Fields" }));
 }
 
@@ -32,13 +33,13 @@ const preview = () => screen.getByRole("article");
 const party = (n: 1 | 2) => screen.getByRole("group", { name: `Party ${n}` });
 
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/^Governing law/), "Delaware");
+  await user.type(screen.getByLabelText(/^Governing Law/), "Delaware");
   await user.type(screen.getByLabelText(/^Jurisdiction/), "New Castle, DE");
   await user.type(within(party(1)).getByLabelText(/^Company/), "Acme Inc.");
   await user.type(within(party(2)).getByLabelText(/^Company/), "Globex");
 }
 
-describe("NdaBuilder", () => {
+describe("DocumentBuilder", () => {
   let createObjectURL: ReturnType<typeof vi.fn>;
   let revokeObjectURL: ReturnType<typeof vi.fn>;
   let clicks: HTMLAnchorElement[];
@@ -70,9 +71,46 @@ describe("NdaBuilder", () => {
     toBlob.mockReset();
   });
 
+  it("starts without a document, offering each one to choose from", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<DocumentBuilder documents={DOCUMENTS} />);
+    expect(picker()).toHaveValue("");
+    expect(screen.queryByRole("article")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What would you like to draft?" })).toBeInTheDocument();
+    expect(downloadButton()).toBeDisabled();
+    expect(screen.queryByText(/Still needed/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Fields" }));
+    expect(screen.getByText(/Choose a document above/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Pilot Agreement/ }));
+    expect(picker()).toHaveValue("pilot-agreement");
+    expect(within(preview()).getAllByRole("heading", { level: 1, name: "Pilot Agreement" })).toHaveLength(2); // cover page and terms
+    expect(screen.getByRole("group", { name: "Provider" })).toBeInTheDocument();
+  });
+
+  it("lists every document in the picker", () => {
+    render(<DocumentBuilder documents={DOCUMENTS} />);
+    const options = within(picker()).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["Choose a document…", ...DOCUMENTS.map((d) => d.spec.name)]);
+  });
+
+  it("keeps the parties and shared details when switching documents", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderFieldsTab();
+    await fillRequiredFields(user);
+    await user.selectOptions(picker(), "pilot-agreement");
+
+    expect(within(screen.getByRole("group", { name: "Provider" })).getByLabelText(/^Company/)).toHaveValue("Acme Inc.");
+    expect(within(screen.getByRole("group", { name: "Customer" })).getByLabelText(/^Company/)).toHaveValue("Globex");
+    expect(screen.getByLabelText(/^Governing Law/)).toHaveValue("Delaware");
+    expect(screen.getByLabelText(/^Chosen Courts/)).toHaveValue("New Castle, DE");
+    expect(screen.getByText("Still needed: Product, Pilot Period")).toBeInTheDocument();
+    expect(within(preview()).getByRole("columnheader", { name: "PROVIDER" })).toBeInTheDocument();
+  });
+
   it("starts with today's date and placeholders in the preview", () => {
     renderFieldsTab();
-    expect(screen.getByLabelText(/^Effective date/)).toHaveValue("2026-03-15");
+    expect(screen.getByLabelText(/^Effective Date/)).toHaveValue("2026-03-15");
     expect(within(preview()).getByText("March 15, 2026")).toBeInTheDocument();
     expect(within(preview()).getByText("[Fill in state]")).toBeInTheDocument();
   });
@@ -81,7 +119,7 @@ describe("NdaBuilder", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderFieldsTab();
 
-    await user.type(screen.getByLabelText(/^Governing law/), "Delaware");
+    await user.type(screen.getByLabelText(/^Governing Law/), "Delaware");
     expect(within(preview()).getByText("Delaware")).toBeInTheDocument();
     expect(within(preview()).queryByText("[Fill in state]")).not.toBeInTheDocument();
 
@@ -95,7 +133,7 @@ describe("NdaBuilder", () => {
     await user.click(screen.getByRole("radio", { name: "In perpetuity" }));
     expect(within(preview()).getByText("In perpetuity.")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/^Effective date/), { target: { value: "2027-07-04" } });
+    fireEvent.change(screen.getByLabelText(/^Effective Date/), { target: { value: "2027-07-04" } });
     expect(within(preview()).getByText("July 4, 2027")).toBeInTheDocument();
   });
 
@@ -104,9 +142,9 @@ describe("NdaBuilder", () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       renderFieldsTab();
       expect(downloadButton()).toBeDisabled();
-      expect(screen.getByText("Still needed: Governing law, Jurisdiction, Party 1 company, Party 2 company")).toBeInTheDocument();
+      expect(screen.getByText("Still needed: Governing Law, Jurisdiction, Party 1 company, Party 2 company")).toBeInTheDocument();
 
-      await user.type(screen.getByLabelText(/^Governing law/), "Delaware");
+      await user.type(screen.getByLabelText(/^Governing Law/), "Delaware");
       expect(screen.getByText("Still needed: Jurisdiction, Party 1 company, Party 2 company")).toBeInTheDocument();
 
       await fillRequiredFields(user);
@@ -158,7 +196,7 @@ describe("NdaBuilder", () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       renderFieldsTab();
       await fillRequiredFields(user);
-      await user.type(screen.getByLabelText(/^MNDA modifications/), "שלום");
+      await user.type(screen.getByLabelText(/^MNDA Modifications/), "שלום");
       expect(warning()).toBeInTheDocument();
       expect(downloadButton()).toBeEnabled();
     });
@@ -173,7 +211,7 @@ describe("NdaBuilder", () => {
 
       await waitFor(() => expect(clicks).toHaveLength(1));
       const element = pdf.mock.calls[0][0] as ReactElement<{ cover: { sections: { title: string }[] }; terms: unknown }>;
-      expect(element.props.terms).toBe(terms);
+      expect(element.props.terms).toBe(NDA.terms);
       expect(element.props.cover.sections.map((s) => s.title)).toContain("Governing Law & Jurisdiction");
       expect(JSON.stringify(element.props.cover)).toContain("Delaware");
 
@@ -264,11 +302,24 @@ describe("NdaBuilder", () => {
   });
 });
 
-describe("NdaBuilder chat", () => {
+describe("DocumentBuilder chat", () => {
   const message = () => screen.getByRole("textbox", { name: "Message" });
   const log = () => screen.getByRole("log", { name: "Conversation" });
-  const reply = (content: string, change: (fields: NdaFormData) => NdaFormData) =>
-    vi.mocked(sendChat).mockImplementationOnce(async (_messages, fields) => ({ reply: content, fields: change(fields) }));
+  // Replies on the Mutual NDA, choosing it first if no document is chosen yet.
+  const reply = (content: string, change: (fields: DocumentData) => DocumentData) =>
+    vi.mocked(sendChat).mockImplementationOnce(async (_messages, draft) => ({
+      reply: content,
+      document: "mutual-nda",
+      fields: change(draft.fields ?? documentData("mutual-nda")),
+    }));
+  const withValues = (f: DocumentData, values: DocumentData["values"]): DocumentData => ({ ...f, values: { ...f.values, ...values } });
+  const withCompanies = (f: DocumentData, one: string, two: string): DocumentData => ({
+    ...f,
+    parties: [
+      { ...f.parties[0], company: one },
+      { ...f.parties[1], company: two },
+    ],
+  });
 
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["Date"] });
@@ -281,7 +332,7 @@ describe("NdaBuilder chat", () => {
   });
 
   it("starts on the Chat tab with a greeting", () => {
-    render(<NdaBuilder terms={terms} />);
+    render(<DocumentBuilder documents={DOCUMENTS} />);
     expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true");
     expect(log()).toHaveTextContent(GREETING);
     expect(message()).toHaveFocus();
@@ -290,12 +341,8 @@ describe("NdaBuilder chat", () => {
 
   it("fills in the document from the assistant's replies", async () => {
     const user = userEvent.setup();
-    render(<NdaBuilder terms={terms} />);
-    reply("Thanks! Which state's law should govern?", (f) => ({
-      ...f,
-      party1: { ...f.party1, company: "Acme Inc." },
-      party2: { ...f.party2, company: "Globex" },
-    }));
+    render(<DocumentBuilder documents={DOCUMENTS} />);
+    reply("Thanks! Which state's law should govern?", (f) => withCompanies(f, "Acme Inc.", "Globex"));
 
     await user.type(message(), "Acme Inc. and Globex{Enter}");
 
@@ -307,12 +354,13 @@ describe("NdaBuilder chat", () => {
         { role: "assistant", content: GREETING },
         { role: "user", content: "Acme Inc. and Globex" },
       ],
-      defaultFormData(),
+      { document: null, fields: null },
       "2026-10-07",
     );
-    expect(screen.getByText("Still needed: Governing law, Jurisdiction")).toBeInTheDocument();
+    expect(picker()).toHaveValue("mutual-nda");
+    expect(screen.getByText("Still needed: Governing Law, Jurisdiction")).toBeInTheDocument();
 
-    reply("All set! You can download the NDA now.", (f) => ({ ...f, governingLaw: "Delaware", jurisdiction: "New Castle, DE" }));
+    reply("All set! You can download the NDA now.", (f) => withValues(f, { governingLaw: "Delaware", chosenCourts: "New Castle, DE" }));
     await user.type(message(), "Delaware, New Castle{Enter}");
 
     expect(await within(log()).findByText("All set! You can download the NDA now.")).toBeInTheDocument();
@@ -322,14 +370,14 @@ describe("NdaBuilder chat", () => {
 
   it("shows the typing indicator until the reply arrives", async () => {
     const user = userEvent.setup();
-    let resolve!: (value: { reply: string; fields: NdaFormData }) => void;
+    let resolve!: (value: ChatReply) => void;
     vi.mocked(sendChat).mockReturnValueOnce(new Promise((r) => (resolve = r)));
-    render(<NdaBuilder terms={terms} />);
+    render(<DocumentBuilder documents={DOCUMENTS} />);
 
     await user.type(message(), "Hi{Enter}");
     expect(screen.getByText("Assistant is typing…")).toBeInTheDocument();
 
-    resolve({ reply: "Hello!", fields: defaultFormData() });
+    resolve({ reply: "Hello!", document: null, fields: null });
     expect(await within(log()).findByText("Hello!")).toBeInTheDocument();
     expect(screen.queryByText("Assistant is typing…")).not.toBeInTheDocument();
     expect(message()).toHaveFocus();
@@ -338,7 +386,7 @@ describe("NdaBuilder chat", () => {
   it("shows errors and retries the same conversation", async () => {
     const user = userEvent.setup();
     vi.mocked(sendChat).mockRejectedValueOnce(new ApiError("The AI assistant is unavailable right now. Please try again.", 502));
-    render(<NdaBuilder terms={terms} />);
+    render(<DocumentBuilder documents={DOCUMENTS} />);
 
     await user.type(message(), "Acme and Globex{Enter}");
     expect(await screen.findByRole("alert")).toHaveTextContent("The AI assistant is unavailable right now.");
@@ -353,42 +401,77 @@ describe("NdaBuilder chat", () => {
 
   it("sends edits made on the Fields tab, and keeps the conversation when switching tabs", async () => {
     const user = userEvent.setup();
-    render(<NdaBuilder terms={terms} />);
+    render(<DocumentBuilder documents={DOCUMENTS} />);
     reply("Thanks!", (f) => f);
     await user.type(message(), "Hello{Enter}");
     await within(log()).findByText("Thanks!");
 
     await user.click(screen.getByRole("tab", { name: "Fields" }));
-    await user.type(screen.getByLabelText(/^Governing law/), "Delaware");
+    await user.type(screen.getByLabelText(/^Governing Law/), "Delaware");
     await user.click(screen.getByRole("tab", { name: "Chat" }));
 
     expect(log()).toHaveTextContent("Thanks!");
     reply("Noted.", (f) => f);
     await user.type(message(), "I set the law{Enter}");
     await within(log()).findByText("Noted.");
-    expect(vi.mocked(sendChat).mock.calls[1][1].governingLaw).toBe("Delaware");
+    expect(vi.mocked(sendChat).mock.calls[1][1].fields?.values.governingLaw).toBe("Delaware");
   });
 
   it("keeps field edits made while waiting for a reply", async () => {
     const user = userEvent.setup();
-    let resolve!: (value: { reply: string; fields: NdaFormData }) => void;
+    let resolve!: (value: ChatReply) => void;
     vi.mocked(sendChat).mockReturnValueOnce(new Promise((r) => (resolve = r)));
-    render(<NdaBuilder terms={terms} />);
+    render(<DocumentBuilder documents={DOCUMENTS} />);
+    fireEvent.change(picker(), { target: { value: "mutual-nda" } });
 
     await user.type(message(), "Acme and Globex{Enter}");
     await user.click(screen.getByRole("tab", { name: "Fields" }));
-    await user.type(screen.getByLabelText(/^Governing law/), "Delaware");
+    await user.type(screen.getByLabelText(/^Governing Law/), "Delaware");
 
-    const sent = vi.mocked(sendChat).mock.calls[0][1];
-    resolve({ reply: "Thanks!", fields: { ...sent, party1: { ...sent.party1, company: "Acme" } } });
+    const sent = vi.mocked(sendChat).mock.calls[0][1] as Draft & { fields: DocumentData };
+    resolve({ reply: "Thanks!", document: "mutual-nda", fields: withCompanies(sent.fields, "Acme", "") });
 
     await waitFor(() => expect(within(party(1)).getByLabelText(/^Company/)).toHaveValue("Acme"));
-    expect(screen.getByLabelText(/^Governing law/)).toHaveValue("Delaware");
+    expect(screen.getByLabelText(/^Governing Law/)).toHaveValue("Delaware");
+  });
+
+  it("moves to the document the assistant chose, keeping what was filled in", async () => {
+    const user = userEvent.setup();
+    render(<DocumentBuilder documents={DOCUMENTS} />);
+    fireEvent.change(picker(), { target: { value: "mutual-nda" } });
+    vi.mocked(sendChat).mockResolvedValueOnce({
+      reply: "Let's do a Pilot Agreement instead.",
+      document: "pilot-agreement",
+      fields: documentData("pilot-agreement", { pilotPeriod: "90 days" }, [{ company: "Acme" }]),
+    });
+
+    await user.type(message(), "Actually it's a 90 day pilot{Enter}");
+
+    expect(await within(log()).findByText("Let's do a Pilot Agreement instead.")).toBeInTheDocument();
+    expect(picker()).toHaveValue("pilot-agreement");
+    expect(within(preview()).getByText("90 days")).toBeInTheDocument();
+    expect(log()).toHaveTextContent("Actually it's a 90 day pilot");
+  });
+
+  it("stays without a document while the assistant explains what it can draft", async () => {
+    const user = userEvent.setup();
+    render(<DocumentBuilder documents={DOCUMENTS} />);
+    vi.mocked(sendChat).mockResolvedValueOnce({
+      reply: "I can't draft an employment contract, but a Professional Services Agreement may help. Want that?",
+      document: null,
+      fields: null,
+    });
+
+    await user.type(message(), "I need an employment contract{Enter}");
+
+    expect(await within(log()).findByText(/can't draft an employment contract/)).toBeInTheDocument();
+    expect(picker()).toHaveValue("");
+    expect(screen.queryByRole("article")).not.toBeInTheDocument();
   });
 
   it("switches tabs with the arrow keys", async () => {
     const user = userEvent.setup();
-    render(<NdaBuilder terms={terms} />);
+    render(<DocumentBuilder documents={DOCUMENTS} />);
 
     screen.getByRole("tab", { name: "Chat" }).focus();
     await user.keyboard("{ArrowRight}");

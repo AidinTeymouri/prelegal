@@ -1,28 +1,25 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { NdaPreview } from "@/components/NdaPreview";
-import { buildCoverPage, defaultFormData, parseStandardTerms, type NdaFormData } from "@/lib/nda";
+import { DocumentPreview } from "@/components/DocumentPreview";
+import { buildCoverPage } from "@/lib/cover";
+import type { DocumentData } from "@/lib/documents";
+import { data as documentData, DOCUMENTS } from "@/testing/documents";
 
-const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8"));
+const document = (id: string) => DOCUMENTS.find((d) => d.spec.id === id)!;
 
-function completeFormData(): NdaFormData {
-  return {
-    ...defaultFormData(),
-    effectiveDate: "2026-03-15",
-    governingLaw: "Delaware",
-    jurisdiction: "New Castle, DE",
-    party1: { name: "Ada Lovelace", title: "CEO", company: "Acme Inc.", noticeAddress: "legal@acme.test" },
-    party2: { name: "Alan Turing", title: "CTO", company: "Globex", noticeAddress: "1 Main St" },
-  };
+function completeFormData(): DocumentData {
+  return documentData("mutual-nda", { effectiveDate: "2026-03-15", governingLaw: "Delaware", chosenCourts: "New Castle, DE" }, [
+    { name: "Ada Lovelace", title: "CEO", company: "Acme Inc.", noticeAddress: "legal@acme.test" },
+    { name: "Alan Turing", title: "CTO", company: "Globex", noticeAddress: "1 Main St" },
+  ]);
 }
 
-function renderPreview(data: NdaFormData) {
-  return render(<NdaPreview cover={buildCoverPage(data)} terms={terms} />);
+function renderPreview(data: DocumentData, id = "mutual-nda") {
+  const { spec, terms } = document(id);
+  return render(<DocumentPreview cover={buildCoverPage(spec, data)} terms={terms} />);
 }
 
-describe("NdaPreview", () => {
+describe("DocumentPreview", () => {
   it("shows the cover page and the standard terms headings", () => {
     renderPreview(completeFormData());
     expect(screen.getByRole("heading", { level: 1, name: "Mutual Non-Disclosure Agreement" })).toBeInTheDocument();
@@ -45,7 +42,7 @@ describe("NdaPreview", () => {
   });
 
   it("shows highlighted placeholders for empty required fields", () => {
-    renderPreview({ ...defaultFormData(), purpose: "", effectiveDate: "" });
+    renderPreview(documentData("mutual-nda", { purpose: "", effectiveDate: "" }));
     for (const text of ["[Purpose]", "[Effective Date]", "[Fill in state]", "[Fill in city or county and state]"]) {
       expect(screen.getByText(text)).toHaveClass("bg-amber-100");
     }
@@ -53,16 +50,16 @@ describe("NdaPreview", () => {
 
   it("renders user input as text, never as HTML", () => {
     const data = completeFormData();
-    data.purpose = '<img src=x onerror="alert(1)"><b>bold</b>';
+    data.values.purpose = '<img src=x onerror="alert(1)"><b>bold</b>';
     const { container } = renderPreview(data);
-    expect(screen.getByText(data.purpose)).toBeInTheDocument();
+    expect(screen.getByText(data.values.purpose)).toBeInTheDocument();
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("b")).toBeNull();
   });
 
   it("keeps line breaks in multi-line modifications", () => {
     const data = completeFormData();
-    data.modifications = "Line one\nLine two";
+    data.values.modifications = "Line one\nLine two";
     renderPreview(data);
     const value = screen.getByText(/Line one/);
     expect(value.textContent).toBe("Line one\nLine two");
@@ -91,7 +88,7 @@ describe("NdaPreview", () => {
     });
 
     it("leaves signature, date and empty party details blank", () => {
-      renderPreview(defaultFormData());
+      renderPreview(documentData("mutual-nda"));
       for (const label of ["Signature", "Print Name", "Company", "Date"]) {
         const row = screen.getByRole("rowheader", { name: label }).closest("tr")!;
         expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(["", ""]);
@@ -110,6 +107,30 @@ describe("NdaPreview", () => {
       expect(screen.getByText("Use and Protection of Confidential Information").tagName).toBe("STRONG");
       const termRefs = screen.getAllByText("Purpose", { selector: "span.underline" });
       expect(termRefs).toHaveLength(3);
+    });
+  });
+
+  describe("for a document with nested clauses", () => {
+    const pilot = () => documentData("pilot-agreement", {}, [{ company: "Acme" }, { company: "Globex" }]);
+
+    it("labels the signature columns with the party roles", () => {
+      renderPreview(pilot(), "pilot-agreement");
+      expect(within(screen.getByRole("table")).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["PROVIDER", "CUSTOMER"]);
+    });
+
+    it("numbers and indents sub-clauses under their sections", () => {
+      renderPreview(pilot(), "pilot-agreement");
+      const clause = screen.getByText("1.1.").closest("p")!;
+      expect(clause).toHaveTextContent("1.1.Access and Use.");
+      expect(clause.style.marginLeft).toBe("1.5rem");
+      expect(screen.getAllByText("(a)")[0].closest("p")!.style.marginLeft).toBe("3rem");
+      expect(screen.getByText("1.").closest("p")!.style.marginLeft).toBe("0rem");
+    });
+
+    it("shows None for blank optional fields and placeholders for required ones", () => {
+      renderPreview(pilot(), "pilot-agreement");
+      expect(screen.getByText("[Pilot Period]")).toHaveClass("bg-amber-100");
+      expect(screen.getByText("Fees:").closest("p")).toHaveTextContent("Fees: None");
     });
   });
 

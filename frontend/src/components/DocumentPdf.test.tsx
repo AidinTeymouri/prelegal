@@ -1,35 +1,40 @@
 // @vitest-environment node
 // Renders the real PDF and reads its text back, so this covers @react-pdf/renderer
 // itself (fonts, layout, page breaks), not just our components.
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PDFParse } from "pdf-parse";
 import { describe, expect, it } from "vitest";
-import { NdaPdf, registerPdfFonts } from "@/components/NdaPdf";
-import { buildCoverPage, defaultFormData, parseStandardTerms, type NdaFormData } from "@/lib/nda";
+import { DocumentPdf, registerPdfFonts } from "@/components/DocumentPdf";
+import { buildCoverPage } from "@/lib/cover";
+import type { DocumentData } from "@/lib/documents";
+import { data as documentData, DOCUMENTS } from "@/testing/documents";
 
 registerPdfFonts(path.join(process.cwd(), "public", "fonts"));
 
-const terms = parseStandardTerms(readFileSync(path.join(process.cwd(), "..", "templates", "Mutual-NDA.md"), "utf8"));
-
-function completeFormData(): NdaFormData {
-  return {
-    ...defaultFormData(),
-    purpose: "Exploring a joint venture for widgets.",
-    effectiveDate: "2026-03-15",
-    mndaTermYears: 2,
-    confidentialityYears: 5,
-    governingLaw: "Delaware",
-    jurisdiction: "New Castle, DE",
-    modifications: "Section 9 is governed by New York law.",
-    party1: { name: "Ada Lovelace", title: "CEO", company: "Acme Inc.", noticeAddress: "legal@acme.test" },
-    party2: { name: "Alan Turing", title: "CTO", company: "Globex", noticeAddress: "1 Main St, Springfield" },
-  };
+function completeFormData(values: Record<string, string | number> = {}): DocumentData {
+  return documentData(
+    "mutual-nda",
+    {
+      purpose: "Exploring a joint venture for widgets.",
+      effectiveDate: "2026-03-15",
+      mndaTermYears: 2,
+      confidentialityYears: 5,
+      governingLaw: "Delaware",
+      chosenCourts: "New Castle, DE",
+      modifications: "Section 9 is governed by New York law.",
+      ...values,
+    },
+    [
+      { name: "Ada Lovelace", title: "CEO", company: "Acme Inc.", noticeAddress: "legal@acme.test" },
+      { name: "Alan Turing", title: "CTO", company: "Globex", noticeAddress: "1 Main St, Springfield" },
+    ],
+  );
 }
 
-async function renderPdf(data: NdaFormData) {
-  const buffer = await renderToBuffer(<NdaPdf cover={buildCoverPage(data)} terms={terms} />);
+async function renderPdf(data: DocumentData, id = "mutual-nda") {
+  const { spec, terms } = DOCUMENTS.find((d) => d.spec.id === id)!;
+  const buffer = await renderToBuffer(<DocumentPdf cover={buildCoverPage(spec, data)} terms={terms} />);
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
     // Sequential: the parser transfers the data to its worker, so concurrent calls fail.
@@ -43,7 +48,7 @@ async function renderPdf(data: NdaFormData) {
   }
 }
 
-describe("NdaPdf", () => {
+describe("DocumentPdf", () => {
   it("produces a valid PDF with the agreement title as metadata", async () => {
     const { buffer, info } = await renderPdf(completeFormData());
     expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
@@ -109,7 +114,7 @@ describe("NdaPdf", () => {
   });
 
   it("shows the alternative terms when chosen", async () => {
-    const data = { ...completeFormData(), mndaTermType: "until-terminated" as const, confidentialityType: "perpetual" as const, modifications: "" };
+    const data = completeFormData({ mndaTermType: "until-terminated", confidentialityType: "perpetual", modifications: "" });
     const { text } = await renderPdf(data);
     expect(text).toContain("Continues until terminated in accordance with the terms of the MNDA.");
     expect(text).toContain("In perpetuity.");
@@ -118,7 +123,7 @@ describe("NdaPdf", () => {
   });
 
   it("shows placeholders for empty fields", async () => {
-    const { text } = await renderPdf({ ...defaultFormData(), purpose: "", effectiveDate: "" });
+    const { text } = await renderPdf(documentData("mutual-nda", { purpose: "", effectiveDate: "" }));
     for (const placeholder of ["[Purpose]", "[Effective Date]", "[Fill in state]", "[Fill in city or county and state]"]) {
       expect(text).toContain(placeholder);
     }
@@ -126,11 +131,11 @@ describe("NdaPdf", () => {
 
   it("renders Latin, Greek and Cyrillic characters outside Latin-1", async () => {
     const data = completeFormData();
-    data.party1.company = "Łódź Spółka Şirket Řeřicha";
-    data.party1.name = "Nguyễn Văn Hữu";
-    data.party2.company = "ООО «Ромашка»";
-    data.party2.name = "Αθήνα Εταιρεία";
-    data.modifications = "Section 9: courts of Kraków, Poland.";
+    data.parties[0].company = "Łódź Spółka Şirket Řeřicha";
+    data.parties[0].name = "Nguyễn Văn Hữu";
+    data.parties[1].company = "ООО «Ромашка»";
+    data.parties[1].name = "Αθήνα Εταιρεία";
+    data.values.modifications = "Section 9: courts of Kraków, Poland.";
     const { text } = await renderPdf(data);
     for (const value of ["Łódź Spółka Şirket Řeřicha", "Nguyễn Văn Hữu", "ООО «Ромашка»", "Αθήνα Εταιρεία", "Kraków"]) {
       expect(text).toContain(value);
@@ -139,12 +144,27 @@ describe("NdaPdf", () => {
 
   it("renders long, multi-line and Latin-1 accented input without failing", async () => {
     const data = completeFormData();
-    data.purpose = "Evaluating a partnership. ".repeat(60);
-    data.modifications = "Line one.\nLine two.\nLine three.";
-    data.party1.company = "Société Générale – “Quotes” & Co.";
+    data.values.purpose = "Evaluating a partnership. ".repeat(60);
+    data.values.modifications = "Line one.\nLine two.\nLine three.";
+    data.parties[0].company = "Société Générale – “Quotes” & Co.";
     const { text, pages } = await renderPdf(data);
     expect(text).toContain("Line one. Line two. Line three.");
     expect(text).toContain("Société Générale");
+    expect(pages.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders another document with role columns and nested clause numbers", async () => {
+    const data = documentData("pilot-agreement", { pilotPeriod: "90 days" }, [{ company: "Acme" }, { company: "Globex" }]);
+    const { text, info } = await renderPdf(data, "pilot-agreement");
+    expect(info.Title).toBe("Pilot Agreement");
+    expect(text).toContain("PROVIDER CUSTOMER Signature");
+    expect(text).toContain("Pilot Period: 90 days");
+    expect(text).toContain("1. Pilot Access 1.1. Access and Use.");
+    expect(text).toMatch(/\(a\) /);
+  });
+
+  it.each(DOCUMENTS.map((d) => [d.spec.name, d.spec.id]))("renders the %s", async (_, id) => {
+    const { pages } = await renderPdf(documentData(id), id);
     expect(pages.length).toBeGreaterThanOrEqual(2);
   });
 });

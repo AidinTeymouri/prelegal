@@ -1,13 +1,18 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { ApiError, sendChat, type ChatMessage } from "@/lib/api";
-import { todayIso, type NdaFormData, type Party } from "@/lib/nda";
+import { ApiError, sendChat, type ChatMessage, type Draft } from "@/lib/api";
+import { todayIso, type DocumentData } from "@/lib/documents";
 
 export const GREETING =
-  "Hi! I’ll help you put together a Mutual Non-Disclosure Agreement. To start, which two companies is it between, and why will you be sharing confidential information?";
+  "Hi! I’ll help you draft a legal agreement, such as an NDA, a cloud service agreement, a pilot agreement or a data processing agreement. What would you like to create?";
 
-// The fields the assistant changed (returned vs sent), applied on top of the current
-// fields, so edits made on the Fields tab while waiting for a reply are kept.
-export function applyChanges(current: NdaFormData, sent: NdaFormData, returned: NdaFormData): NdaFormData {
+// Applies the assistant's reply to the current draft. When it moved to another document,
+// its draft replaces ours. Otherwise only the fields it changed (returned vs sent) are
+// applied, so edits made on the Fields tab while waiting for the reply are kept. If the
+// user picked another document while waiting, the reply's changes no longer apply.
+export function applyChanges(current: Draft, sent: Draft, returned: Draft): Draft {
+  if (current.document !== sent.document) return current;
+  if (returned.document !== sent.document || !returned.fields) return returned;
+  if (!current.fields || !sent.fields) return current;
   const changed = <T extends object>(base: T, before: T, after: T): T => {
     const result = { ...base };
     for (const key of Object.keys(after) as (keyof T)[]) {
@@ -15,24 +20,28 @@ export function applyChanges(current: NdaFormData, sent: NdaFormData, returned: 
     }
     return result;
   };
-  const party = (key: "party1" | "party2"): Party => changed(current[key], sent[key], returned[key]);
-  return { ...changed(current, sent, returned), party1: party("party1"), party2: party("party2") };
+  const [before, after] = [sent.fields, returned.fields];
+  const fields: DocumentData = {
+    values: changed(current.fields.values, before.values, after.values),
+    parties: [0, 1].map((i) => changed(current.fields!.parties[i], before.parties[i], after.parties[i])) as DocumentData["parties"],
+  };
+  return { document: current.document, fields };
 }
 
-// The conversation with the assistant. Each reply updates the NDA fields through setData.
-export function useNdaChat(data: NdaFormData, setData: Dispatch<SetStateAction<NdaFormData>>) {
+// The conversation with the assistant. Each reply updates the draft through setDraft.
+export function useDocumentChat(draft: Draft, setDraft: Dispatch<SetStateAction<Draft>>) {
   const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: GREETING }]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function request(conversation: ChatMessage[]) {
-    const sent = data;
+    const sent = draft;
     setPending(true);
     setError(null);
     try {
-      const { reply, fields } = await sendChat(conversation, sent, todayIso());
+      const { reply, ...returned } = await sendChat(conversation, sent, todayIso());
       setMessages([...conversation, { role: "assistant", content: reply }]);
-      setData((current) => applyChanges(current, sent, fields));
+      setDraft((current) => applyChanges(current, sent, returned));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
     } finally {

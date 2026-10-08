@@ -1,4 +1,4 @@
-# Manual test plan – Mutual NDA creator
+# Manual test plan – legal agreement creator
 
 The automated tests (`npm test`, `npm run test:e2e`) check behaviour and the text in the PDF. This checklist covers what they can't: how things look, real browsers and PDF viewers, assistive technology, and whether the agreement reads correctly to a person.
 
@@ -12,7 +12,7 @@ Record the browser/OS versions, who ran it and the date in the PR. File anything
 
 ## Test data
 
-Use these values unless a step says otherwise. They include accents, long text and line breaks on purpose.
+Sections 1–8 use the Mutual NDA (choose it in the **Document** picker); section 9 covers the other documents. Use these values unless a step says otherwise. They include accents, long text and line breaks on purpose.
 
 | Field | Party 1 | Party 2 |
 | --- | --- | --- |
@@ -31,10 +31,10 @@ Use these values unless a step says otherwise. They include accents, long text a
 
 ## 0. Accounts
 
-- [ ] The page shows "Sign in to Prelegal"; the NDA creator is not shown.
-- [ ] **Create an account** with a new email and an 8+ character password: the NDA creator appears and the header shows your email and **Sign out**.
+- [ ] The page shows "Sign in to Prelegal"; the document creator is not shown.
+- [ ] **Create an account** with a new email and an 8+ character password: the document creator appears and the header shows your email and **Sign out**.
 - [ ] Reload: you are still signed in.
-- [ ] **Sign out**, then sign in with the wrong password: "Incorrect email or password." Sign in with the right one: the NDA creator appears.
+- [ ] **Sign out**, then sign in with the wrong password: "Incorrect email or password." Sign in with the right one: the document creator appears.
 - [ ] Try to create a second account with the same email: "An account with this email already exists."
 - [ ] Stop and start the container (`scripts/stop-mac.sh`, `scripts/start-mac.sh`) and reload: you are signed out and the account no longer exists.
 - [ ] Stop the container while signed in, then click **Sign out**: "Can’t reach the server…" is shown next to the button and you stay on the page.
@@ -43,25 +43,28 @@ Use these values unless a step says otherwise. They include accents, long text a
 
 Needs `OPENROUTER_API_KEY` in `.env`. Sign in first.
 
-- [ ] The Chat tab is selected and shows the assistant's greeting; the message box has focus.
-- [ ] Answer in free form, e.g. "Acme Inc. and Globex, we're exploring a joint product. Delaware law, disputes in New Castle County. Start next Monday, 2 years, confidentiality forever." The reply arrives within a few seconds ("Assistant is typing…" meanwhile), confirms what it filled in, and asks for anything still missing. The preview shows the values, the purpose describes the joint product, and "next Monday" is the right date.
-- [ ] Once nothing required is missing, the assistant says the NDA is ready to download and offers the optional details; **Download PDF** is enabled.
+- [ ] The Chat tab is selected and shows the assistant's greeting; the message box has focus. The **Document** picker says "Choose a document…" and the preview area lists every document as a card.
+- [ ] Describe a need without naming a document, e.g. "We're letting a customer trial our analytics product for 90 days before they buy." The assistant suggests the Pilot Agreement with a reason. Confirm: the picker switches to Pilot Agreement, the preview shows its Order Form, and the assistant asks for what's still needed (and has already filled in the 90 days).
+- [ ] Ask for a document it can't draft ("I need an employment contract"): it says it can't, suggests the closest supported document and asks whether you want it; nothing is chosen until you agree.
+- [ ] Start over (reload) and ask for an NDA. Answer in free form, e.g. "Acme Inc. and Globex, we're exploring a joint product. Delaware law, disputes in New Castle County. Start next Monday, 2 years, confidentiality forever." The reply arrives within a few seconds ("Assistant is typing…" meanwhile), confirms what it filled in, and asks for anything still missing. The preview shows the values, the purpose describes the joint product, and "next Monday" is the right date.
+- [ ] Once nothing required is missing, the assistant says the document is ready to download and offers the optional details; **Download PDF** is enabled.
 - [ ] Give a signatory's name, title and email: they appear in the signature table.
 - [ ] Change something ("make it 3 years instead"): the preview updates.
-- [ ] Ask something unrelated ("write me a poem"): the assistant steers back to the NDA.
+- [ ] Ask to switch ("actually make it a Cloud Service Agreement"): the picker switches, the companies, effective date, governing law and courts are kept, and the assistant asks about the new document.
+- [ ] Ask something unrelated ("write me a poem"): the assistant steers back to the agreement.
 - [ ] Shift+Enter adds a line; Enter sends. The conversation scrolls to the newest message.
 - [ ] Switch to **Fields**: the values match. Change the governing law there, go back to **Chat**: the conversation and any unsent text are still there, and the assistant knows about the change if asked.
 - [ ] Start the app without `OPENROUTER_API_KEY`, send a message: an error explains the assistant isn't set up, with **Retry**.
 
 ## 1. First load
 
-Sign in first and open the **Fields** tab.
+Sign in first, choose **Mutual Non-Disclosure Agreement** in the **Document** picker and open the **Fields** tab.
 
 - [ ] The page loads with no errors in the browser console (a 401 for `/api/auth/me` before signing in is expected).
 - [ ] The form is on the left and the preview on the right (desktop), each scrolling on its own.
 - [ ] The effective date is today's date in your local time zone.
 - [ ] The preview shows amber placeholders for Governing Law and Jurisdiction.
-- [ ] **Download PDF** is greyed out, and "Still needed: Governing law, Jurisdiction, Party 1 company, Party 2 company" is shown under it.
+- [ ] **Download PDF** is greyed out, and "Still needed: Governing Law, Jurisdiction, Party 1 company, Party 2 company" is shown under it.
 
 ## 2. Live preview
 
@@ -143,3 +146,14 @@ Run sections 1–4 in each of: Chrome, Safari, Firefox (latest), plus Safari on 
 - [ ] Load the page, then go offline (DevTools → Network → Offline) *before the first download* and click **Download PDF**: a red "Something went wrong generating the PDF. Please try again." message appears and the button becomes clickable again. Go back online and retry: the message disappears and the PDF downloads.
 - [ ] Paste `<img src=x onerror="alert(1)">` into Purpose: it is shown as plain text in the preview and the PDF, and no alert pops up.
 - [ ] Paste a very long purpose (several paragraphs): the preview and PDF wrap it, and the cover page flows onto a second page without overlapping text.
+
+## 9. Other documents
+
+For each document in the **Document** picker (or a sample of them: one Order Form document such as the Pilot Agreement, one Key Terms document such as the BAA, and the Professional Services Agreement, the largest):
+
+- [ ] The Fields tab has a group per cover page section and one per party, named by role (e.g. Provider and Customer). Optional fields say "Optional".
+- [ ] The preview's cover page has the document's name, an intro naming its Order Form / Cover Page / Key Terms and the Common Paper standard terms (with a working link when the template has one), every field as "Label: value", and a signature table with the role names as column headings.
+- [ ] Blank required fields show an amber placeholder; blank optional fields show "None".
+- [ ] The standard terms are word-for-word the same as the template in `templates/`, with sections numbered 1, 2, 3…, clauses 1.1, 1.2… indented under them, and lettered items (a), (b)… indented further. Section and clause headings are bold; terms defined on the cover page (Provider, Customer, Pilot Period…) are underlined.
+- [ ] Fill in the required fields: **Download PDF** is enabled. The PDF is named after the template and the companies (e.g. `Pilot-Agreement_Acme-Inc_Globex.pdf`), and its numbering and indentation match the preview, with no clause cut off at a page break.
+- [ ] Switch from one document to another with the picker: the companies, signatories and shared fields (effective date, governing law, courts…) are kept; the other fields start fresh.

@@ -1,5 +1,7 @@
 import { Document, Font, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import type { CoverPage, Inline, TermsBlock } from "@/lib/nda";
+import type { CoverPage } from "@/lib/cover";
+import type { Inline } from "@/lib/inline";
+import { clauseLabel, type TermsBlock } from "@/lib/terms";
 
 // Legal text reads better without words broken across lines.
 Font.registerHyphenationCallback((word) => [word]);
@@ -40,7 +42,7 @@ const styles = StyleSheet.create({
   valueCell: { flex: 1 },
   footnote: { fontSize: 8.5, color: "#666666", marginTop: 6 },
   clause: { flexDirection: "row", marginBottom: 8 },
-  clauseNumber: { width: 18 },
+  clauseNumber: { width: 30 },
   clauseBody: { flex: 1 },
 });
 
@@ -55,7 +57,7 @@ function Inlines({ content }: { content: Inline[] }) {
         );
       case "term":
         return (
-          <Text key={i} style={styles.term}>
+          <Text key={i} style={inline.bold ? [styles.term, styles.bold] : styles.term}>
             {inline.text}
           </Text>
         );
@@ -75,7 +77,7 @@ function Inlines({ content }: { content: Inline[] }) {
   });
 }
 
-export function NdaPdf({ cover, terms }: { cover: CoverPage; terms: TermsBlock[] }) {
+export function DocumentPdf({ cover, terms }: { cover: CoverPage; terms: TermsBlock[] }) {
   return (
     <Document title={cover.title} author="Prelegal">
       <Page size="LETTER" style={styles.page}>
@@ -104,8 +106,11 @@ export function NdaPdf({ cover, terms }: { cover: CoverPage; terms: TermsBlock[]
         <View style={styles.table} wrap={false}>
           <View style={styles.row}>
             <View style={[styles.cell, styles.labelCell]} />
-            <Text style={[styles.cell, styles.valueCell, styles.bold, { textAlign: "center" }]}>PARTY 1</Text>
-            <Text style={[styles.cell, styles.valueCell, styles.bold, { textAlign: "center" }]}>PARTY 2</Text>
+            {cover.partyLabels.map((label) => (
+              <Text key={label} style={[styles.cell, styles.valueCell, styles.bold, { textAlign: "center" }]}>
+                {label}
+              </Text>
+            ))}
           </View>
           {cover.signatureRows.map((row) => (
             <View key={row.label} style={styles.row}>
@@ -138,8 +143,8 @@ export function NdaPdf({ cover, terms }: { cover: CoverPage; terms: TermsBlock[]
               );
             case "clause":
               return (
-                <View key={i} style={styles.clause}>
-                  <Text style={styles.clauseNumber}>{block.number}.</Text>
+                <View key={i} style={[styles.clause, { marginLeft: block.depth * 18 }]}>
+                  <Text style={styles.clauseNumber}>{clauseLabel(block.number)}</Text>
                   <Text style={styles.clauseBody}>
                     <Inlines content={block.content} />
                   </Text>

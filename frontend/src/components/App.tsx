@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AuthForm } from "@/components/AuthForm";
-import { NdaBuilderClient } from "@/components/NdaBuilderClient";
+import { DocumentBuilderClient } from "@/components/DocumentBuilderClient";
 import { ApiError, getCurrentUser, signOut, type User } from "@/lib/api";
-import type { TermsBlock } from "@/lib/nda";
+import type { LoadedDocument } from "@/lib/documents";
 
-// The page shell: shows the sign-in form until someone is signed in, then the NDA creator.
-export function App({ terms }: { terms: TermsBlock[] }) {
+// The page shell: shows the sign-in form until someone is signed in, then the document creator.
+export function App({ documents }: { documents: LoadedDocument[] }) {
   // undefined while we don't yet know whether anyone is signed in.
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -39,10 +39,10 @@ export function App({ terms }: { terms: TermsBlock[] }) {
       <header className="flex h-[57px] items-center justify-between gap-4 border-b border-zinc-200 bg-white px-6">
         <div className="min-w-0 truncate">
           <span className="font-semibold text-brand-navy">Prelegal</span>
-          {user && <span className="ml-3 text-sm text-zinc-500">Mutual NDA creator</span>}
+          {user && <span className="ml-3 text-sm text-zinc-500">Legal agreement creator</span>}
         </div>
         <div className="flex min-w-0 items-center gap-4">
-          <span className="hidden text-xs text-zinc-400 md:inline">Template by Common Paper · CC BY 4.0</span>
+          <span className="hidden text-xs text-zinc-400 md:inline">Templates by Common Paper · CC BY 4.0</span>
           {user && (
             <>
               {signOutError && (
@@ -64,7 +64,7 @@ export function App({ terms }: { terms: TermsBlock[] }) {
       </header>
 
       {user ? (
-        <NdaBuilderClient terms={terms} />
+        <DocumentBuilderClient documents={documents} />
       ) : (
         <main className="flex flex-1 items-start justify-center px-4 py-16">
           {user === null && <AuthForm onSignedIn={setUser} />}
